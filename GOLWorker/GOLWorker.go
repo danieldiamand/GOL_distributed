@@ -7,32 +7,35 @@ import (
 	"net/rpc"
 	"time"
 	"uk.ac.bris.cs/gameoflife/stubs"
+	"uk.ac.bris.cs/gameoflife/util"
 )
 
 func main() {
 	pAddr := flag.String("port", "8030", "Port to listen on")
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
-	rpc.Register(&GOLWorkerCommand{})
-	listener, _ := net.Listen("tcp", ":"+*pAddr)
+	err := rpc.Register(&GOLWorkerCommand{})
+	util.HandleError(err)
+	listener, _ := net.Listen("tcp", "localhost:"+*pAddr)
 	defer listener.Close()
 	rpc.Accept(listener)
 }
 
 func ProgressWorld(world [][]byte, w, h, turns int) [][]byte {
 	// TODO: Execute all turns of the Game of Life.
+	println("called")
 	turn := 0
 	for ; turn < turns; turn++ {
 		world = calculateNextState(world, w, h)
 	}
 
+	println("world progressed")
 	return world
 }
 
 type GOLWorkerCommand struct{}
 
 func (s *GOLWorkerCommand) WorkerProgressWorld(req stubs.Request, res *stubs.Response) (err error) {
-	println("here")
 	res.World = ProgressWorld(req.World, req.W, req.H, req.Turns)
 	return
 }
