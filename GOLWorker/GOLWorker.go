@@ -5,10 +5,17 @@ import (
 	"math/rand"
 	"net"
 	"net/rpc"
+	"sync"
 	"time"
 	"uk.ac.bris.cs/gameoflife/stubs"
 	"uk.ac.bris.cs/gameoflife/util"
 )
+
+var world [][]byte
+var turn int
+var width int
+var height int
+var worldMu sync.Mutex
 
 func main() {
 	pAddr := flag.String("port", "8030", "Port to listen on")
@@ -21,22 +28,31 @@ func main() {
 	rpc.Accept(listener)
 }
 
-func ProgressWorld(world [][]byte, w, h, turns int) [][]byte {
-	// TODO: Execute all turns of the Game of Life.
-	println("called")
-	turn := 0
-	for ; turn < turns; turn++ {
-		world = calculateNextState(world, w, h)
-	}
-
-	println("world progressed")
-	return world
-}
-
 type GOLWorkerCommand struct{}
 
 func (s *GOLWorkerCommand) WorkerProgressWorld(req stubs.Request, res *stubs.Response) (err error) {
-	res.World = ProgressWorld(req.World, req.W, req.H, req.Turns)
+	world = req.World
+	width = req.W
+	height = req.H
+	turn = 0
+
+	println("called")
+	for ; turn < req.Turns; turn++ {
+		worldMu.Lock()
+		world = calculateNextState(world, width, height)
+		worldMu.Unlock()
+	}
+
+	println("world progressed")
+	res.World = world
+
+	return
+}
+
+func (s *GOLWorkerCommand) WorkerCountCells(req stubs.Empty, res *stubs.CountCellResponse) (err error) {
+	println("counting cells")
+	res.Count = 5
+	res.Turn = turn
 	return
 }
 

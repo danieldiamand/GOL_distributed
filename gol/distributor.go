@@ -59,8 +59,9 @@ func distributor(p Params, c distributorChannels) {
 
 	request := stubs.Request{World: world, W: p.ImageWidth, H: p.ImageHeight, Turns: p.Turns}
 	response := new(stubs.Response)
-	err := client.Call(stubs.ProgressWorldHandler, request, response)
-	util.HandleError(err)
+	doneProgressing := client.Go(stubs.ProgressWorldHandler, request, response, nil)
+
+	<-doneProgressing.Done
 
 	world = response.World
 

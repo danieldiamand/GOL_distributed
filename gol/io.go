@@ -47,7 +47,12 @@ func (io *ioState) writePgmImage() {
 
 	file, ioError := os.Create("out/" + filename + ".pgm")
 	util.Check(ioError)
-	defer file.Close()
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			print(err)
+		}
+	}(file)
 
 	_, _ = file.WriteString("P5\n")
 	//_, _ = file.WriteString("# PGM file writer by pnmmodules (https://github.com/owainkenwayucl/pnmmodules).\n")

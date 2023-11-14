@@ -12,3 +12,11 @@ type Request struct {
 	H     int
 	Turns int
 }
+
+type Empty struct {
+}
+
+type CountCellResponse struct {
+	Count int
+	Turn  int
+}
