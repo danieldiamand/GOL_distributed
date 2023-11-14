@@ -59,8 +59,8 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 	defer client.Close()
 
 	worldRequest := stubs.ProgressWorldRequest{World: world, W: p.ImageWidth, H: p.ImageHeight, Turns: p.Turns}
-	worldResponse := new(stubs.ProgressWorldResponse)
-	doneProgressing := client.Go(stubs.ProgressWorldHandler, worldRequest, worldResponse, nil)
+	worldResponse := new(stubs.WorldResponse)
+	doneProgressing := client.Go(stubs.ProgressWorldHandler, worldRequest, &worldResponse, nil)
 
 	if doneProgressing.Error != nil {
 		println("Error:", doneProgressing.Error)
@@ -68,52 +68,83 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 
 	timer := time.NewTimer(2 * time.Second)
 	done := false
+	//killed := false
 	for {
 		select {
 		case <-doneProgressing.Done:
 			if doneProgressing.Error != nil {
-				println("progressing world err:", doneProgressing.Error)
+				println("progressing world err:", doneProgressing.Error.Error())
 			}
 			done = true
+			break
 		case <-timer.C:
 			timer.Reset(2 * time.Second)
 			countResponse := new(stubs.CountCellResponse)
-			err := client.Call(stubs.CountCellHandler, stubs.Empty{}, countResponse)
+			err := client.Call(stubs.CountCellHandler, stubs.Empty{}, &countResponse)
 			if err != nil {
-				println("err!:", err)
+				println("err!:", err.Error())
 			}
 			if countResponse.Count != -1 {
 				c.events <- AliveCellsCount{countResponse.Turn, countResponse.Count}
 			}
+			break
 		case key := <-keyPresses:
 			switch key {
-
+			case 's':
+				worldResponse := new(stubs.WorldResponse)
+				err := client.Call(stubs.FetchWorldHandler, stubs.Empty{}, &worldResponse)
+				if err != nil {
+					println("fetch world err", err)
+				}
+				sendWorldToPGM(worldResponse.World, worldResponse.Turn, p, c)
+				break
 			case 'p':
 				pauseResponse := new(stubs.PauseResponse)
-				err := client.Call(stubs.PauseHandler, stubs.Empty{}, pauseResponse)
+				err := client.Call(stubs.PauseHandler, stubs.Empty{}, &pauseResponse)
 				if err != nil {
 					println("pausing err", err)
 				}
 				println(pauseResponse.Output)
 				break
+			case 'q':
+				err := client.Call(stubs.QuitHandler, stubs.Empty{}, &stubs.Empty{})
+				if err != nil {
+					println("quiting err", err.Error())
+				}
+				println("Quiting...")
+				break
+			case 'k':
+				err := client.Call(stubs.QuitHandler, stubs.Empty{}, &stubs.Empty{})
+				if err != nil {
+					println("killing err", err.Error())
+				}
+				println("Killing...")
+				//killed = true
+				break
 			}
+			break
 		}
 		if done {
 			break
 		}
 	}
 
+	//if killed {
+	//	_ = client.Go(stubs.KillHandler, stubs.Empty{}, &stubs.Empty{}, nil)
+	//}
+
 	world = worldResponse.World
+	finalTurn := worldResponse.Turn
 
 	//Send final world to io
-	sendWorldToPGM(world, p.Turns, p, c)
-	c.events <- FinalTurnComplete{p.Turns, calculateAliveCells(world, p)}
+	sendWorldToPGM(world, finalTurn, p, c)
+	c.events <- FinalTurnComplete{finalTurn, calculateAliveCells(world, p)}
 
 	// Make sure that the Io has finished any output before exiting.
 	c.ioCommand <- ioCheckIdle
 	<-c.ioIdle
 
-	c.events <- StateChange{p.Turns, Quitting}
+	c.events <- StateChange{finalTurn, Quitting}
 
 	// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
 	close(c.events)

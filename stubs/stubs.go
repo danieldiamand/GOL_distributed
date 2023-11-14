@@ -3,6 +3,9 @@ package stubs
 var ProgressWorldHandler = "GOLWorker.ProgressWorld"
 var CountCellHandler = "GOLWorker.CountCells"
 var PauseHandler = "GOLWorker.Pause"
+var FetchWorldHandler = "GOLWorker.FetchWorld"
+var QuitHandler = "GOLWorker.Quit"
+var KillHandler = "GOLWorker.Kill"
 
 type Empty struct {
 }
@@ -14,8 +17,9 @@ type ProgressWorldRequest struct {
 	Turns int
 }
 
-type ProgressWorldResponse struct {
+type WorldResponse struct {
 	World [][]byte
+	Turn  int
 }
 
 type CountCellResponse struct {

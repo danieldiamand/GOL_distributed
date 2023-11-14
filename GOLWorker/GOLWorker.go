@@ -29,26 +29,30 @@ type GOLWorker struct {
 	width    int
 	height   int
 	isPaused bool
+	isQuit   bool
 	worldMu  sync.Mutex
 }
 
-func (w *GOLWorker) ProgressWorld(req stubs.ProgressWorldRequest, res *stubs.ProgressWorldResponse) (err error) {
+func (w *GOLWorker) ProgressWorld(req stubs.ProgressWorldRequest, res *stubs.WorldResponse) (err error) {
 	w.world = req.World
 	w.width = req.W
 	w.height = req.H
 	w.turn = 0
+	w.isQuit = false
 	w.isPaused = false
 
-	println("Worker called on world", w.width, "x", w.height)
-	for ; w.turn < req.Turns; w.turn++ {
+	println("World progressing started on: ", w.width, "x", w.height)
+	for w.turn < req.Turns && !w.isQuit {
 		newWorld := calculateNextState(w.world, w.width, w.height)
 		w.worldMu.Lock()
 		w.world = newWorld
+		w.turn++
 		w.worldMu.Unlock()
 	}
 
 	res.World = w.world
-	println("world progressed")
+	res.Turn = w.turn
+	println("World progressing finished")
 
 	return
 }
@@ -74,7 +78,6 @@ func (w *GOLWorker) CountCells(req stubs.Empty, res *stubs.CountCellResponse) (e
 }
 
 func (w *GOLWorker) Pause(req stubs.Empty, res *stubs.PauseResponse) (err error) {
-
 	if !w.isPaused {
 		println("Pausing on turn", w.turn)
 		w.worldMu.Lock()
@@ -86,6 +89,19 @@ func (w *GOLWorker) Pause(req stubs.Empty, res *stubs.PauseResponse) (err error)
 		w.worldMu.Unlock()
 		res.Output = "Continuing"
 	}
+	return
+}
+
+func (w *GOLWorker) FetchWorld(req stubs.Empty, res *stubs.WorldResponse) (err error) {
+	w.worldMu.Lock()
+	res.World = w.world
+	res.Turn = w.turn
+	w.worldMu.Unlock()
+	return
+}
+
+func (w *GOLWorker) Quit(req stubs.Empty, res *stubs.Empty) (err error) {
+	w.isQuit = true
 	return
 }
 
