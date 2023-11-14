@@ -4,6 +4,9 @@ var ProgressWorldHandler = "GOLWorker.ProgressWorld"
 var CountCellHandler = "GOLWorker.CountCells"
 var PauseHandler = "GOLWorker.Pause"
 
+type Empty struct {
+}
+
 type ProgressWorldRequest struct {
 	World [][]byte
 	W     int
@@ -15,10 +18,11 @@ type ProgressWorldResponse struct {
 	World [][]byte
 }
 
-type Empty struct {
-}
-
 type CountCellResponse struct {
 	Count int
 	Turn  int
+}
+
+type PauseResponse struct {
+	Output string
 }

@@ -58,9 +58,9 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 	client, _ := rpc.Dial("tcp", server)
 	defer client.Close()
 
-	request := stubs.ProgressWorldRequest{World: world, W: p.ImageWidth, H: p.ImageHeight, Turns: p.Turns}
-	response := new(stubs.ProgressWorldResponse)
-	doneProgressing := client.Go(stubs.ProgressWorldHandler, request, response, nil)
+	worldRequest := stubs.ProgressWorldRequest{World: world, W: p.ImageWidth, H: p.ImageHeight, Turns: p.Turns}
+	worldResponse := new(stubs.ProgressWorldResponse)
+	doneProgressing := client.Go(stubs.ProgressWorldHandler, worldRequest, worldResponse, nil)
 
 	if doneProgressing.Error != nil {
 		println("Error:", doneProgressing.Error)
@@ -77,31 +77,33 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 			done = true
 		case <-timer.C:
 			timer.Reset(2 * time.Second)
-			res := new(stubs.CountCellResponse)
-			err := client.Call(stubs.CountCellHandler, stubs.Empty{}, res)
+			countResponse := new(stubs.CountCellResponse)
+			err := client.Call(stubs.CountCellHandler, stubs.Empty{}, countResponse)
 			if err != nil {
 				println("err!:", err)
 			}
-			c.events <- AliveCellsCount{res.Turn, res.Count}
-			//case key := <-keyPresses:
-			//	switch key {
-			//	case 'p':
-			//		println("Paused")
-			//		donePausing := client.Go(stubs.PauseHandler, stubs.Empty{}, stubs.Empty{}, nil)
-			//		if donePausing.Error != nil {
-			//			println("pausing err", donePausing.Error)
-			//		}
-			//		<-donePausing.Done
-			//		println("Continuing")
-			//		break
-			//	}
+			if countResponse.Count != -1 {
+				c.events <- AliveCellsCount{countResponse.Turn, countResponse.Count}
+			}
+		case key := <-keyPresses:
+			switch key {
+
+			case 'p':
+				pauseResponse := new(stubs.PauseResponse)
+				err := client.Call(stubs.PauseHandler, stubs.Empty{}, pauseResponse)
+				if err != nil {
+					println("pausing err", err)
+				}
+				println(pauseResponse.Output)
+				break
+			}
 		}
 		if done {
 			break
 		}
 	}
 
-	world = response.World
+	world = worldResponse.World
 
 	//Send final world to io
 	sendWorldToPGM(world, p.Turns, p, c)

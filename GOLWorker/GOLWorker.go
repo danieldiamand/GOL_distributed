@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"math/rand"
 	"net"
 	"net/rpc"
@@ -40,8 +41,9 @@ func (w *GOLWorker) ProgressWorld(req stubs.ProgressWorldRequest, res *stubs.Pro
 
 	println("Worker called on world", w.width, "x", w.height)
 	for ; w.turn < req.Turns; w.turn++ {
+		newWorld := calculateNextState(w.world, w.width, w.height)
 		w.worldMu.Lock()
-		w.world = calculateNextState(w.world, w.width, w.height)
+		w.world = newWorld
 		w.worldMu.Unlock()
 	}
 
@@ -52,6 +54,10 @@ func (w *GOLWorker) ProgressWorld(req stubs.ProgressWorldRequest, res *stubs.Pro
 }
 
 func (w *GOLWorker) CountCells(req stubs.Empty, res *stubs.CountCellResponse) (err error) {
+	if w.isPaused {
+		res.Count = -1
+		return
+	}
 	w.worldMu.Lock()
 	cells := 0
 	for y := 0; y < w.height; y++ {
@@ -67,13 +73,18 @@ func (w *GOLWorker) CountCells(req stubs.Empty, res *stubs.CountCellResponse) (e
 	return
 }
 
-func (w *GOLWorker) Pause(req stubs.Empty, res *stubs.Empty) (err error) {
+func (w *GOLWorker) Pause(req stubs.Empty, res *stubs.PauseResponse) (err error) {
+
 	if !w.isPaused {
+		println("Pausing on turn", w.turn)
 		w.worldMu.Lock()
 		w.isPaused = true
+		res.Output = fmt.Sprintf("Pausing on turn %d", w.turn)
 	} else {
-		w.worldMu.Unlock()
+		println("Unpausing")
 		w.isPaused = false
+		w.worldMu.Unlock()
+		res.Output = "Continuing"
 	}
 	return
 }
