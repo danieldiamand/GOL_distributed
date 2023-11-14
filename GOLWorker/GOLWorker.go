@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"net"
 	"net/rpc"
+	"os"
 	"sync"
 	"time"
 	"uk.ac.bris.cs/gameoflife/stubs"
@@ -102,6 +103,12 @@ func (w *GOLWorker) FetchWorld(req stubs.Empty, res *stubs.WorldResponse) (err e
 
 func (w *GOLWorker) Quit(req stubs.Empty, res *stubs.Empty) (err error) {
 	w.isQuit = true
+	return
+}
+
+func (w *GOLWorker) Kill(req stubs.Empty, res *stubs.Empty) (err error) {
+	println("Worker killed.")
+	os.Exit(0)
 	return
 }
 

@@ -68,7 +68,7 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 
 	timer := time.NewTimer(2 * time.Second)
 	done := false
-	//killed := false
+	killed := false
 	for {
 		select {
 		case <-doneProgressing.Done:
@@ -119,7 +119,7 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 					println("killing err", err.Error())
 				}
 				println("Killing...")
-				//killed = true
+				killed = true
 				break
 			}
 			break
@@ -129,9 +129,9 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 		}
 	}
 
-	//if killed {
-	//	_ = client.Go(stubs.KillHandler, stubs.Empty{}, &stubs.Empty{}, nil)
-	//}
+	if killed {
+		_ = client.Go(stubs.KillHandler, stubs.Empty{}, &stubs.Empty{}, nil)
+	}
 
 	world = worldResponse.World
 	finalTurn := worldResponse.Turn
