@@ -11,12 +11,6 @@ import (
 	"uk.ac.bris.cs/gameoflife/util"
 )
 
-var world [][]byte
-var turn int
-var width int
-var height int
-var worldMu sync.Mutex
-
 func main() {
 	pAddr := flag.String("port", "8030", "Port to listen on")
 	flag.Parse()
@@ -28,31 +22,47 @@ func main() {
 	rpc.Accept(listener)
 }
 
-type GOLWorkerCommand struct{}
+type GOLWorkerCommand struct {
+	world    [][]byte
+	turn     int
+	width    int
+	height   int
+	isPaused bool
+	worldMu  sync.Mutex
+}
 
 func (s *GOLWorkerCommand) WorkerProgressWorld(req stubs.Request, res *stubs.Response) (err error) {
-	world = req.World
-	width = req.W
-	height = req.H
-	turn = 0
+	s.world = req.World
+	s.width = req.W
+	s.height = req.H
+	s.turn = 0
 
-	println("called")
-	for ; turn < req.Turns; turn++ {
-		worldMu.Lock()
-		world = calculateNextState(world, width, height)
-		worldMu.Unlock()
+	println("Worker called on world", s.width, "x", s.height)
+	for ; s.turn < req.Turns; s.turn++ {
+		s.worldMu.Lock()
+		s.world = calculateNextState(s.world, s.width, s.height)
+		s.worldMu.Unlock()
 	}
 
+	res.World = s.world
 	println("world progressed")
-	res.World = world
 
 	return
 }
 
 func (s *GOLWorkerCommand) WorkerCountCells(req stubs.Empty, res *stubs.CountCellResponse) (err error) {
-	println("counting cells")
-	res.Count = 5
-	res.Turn = turn
+	s.worldMu.Lock()
+	cells := 0
+	for y := 0; y < s.height; y++ {
+		for x := 0; x < s.width; x++ {
+			if s.world[y][x] == 255 {
+				cells++
+			}
+		}
+	}
+	s.worldMu.Unlock()
+	res.Count = cells
+	res.Turn = s.turn
 	return
 }
 

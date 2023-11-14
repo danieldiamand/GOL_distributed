@@ -3,6 +3,7 @@ package gol
 import (
 	"fmt"
 	"net/rpc"
+	"time"
 	"uk.ac.bris.cs/gameoflife/stubs"
 	"uk.ac.bris.cs/gameoflife/util"
 )
@@ -61,7 +62,29 @@ func distributor(p Params, c distributorChannels) {
 	response := new(stubs.Response)
 	doneProgressing := client.Go(stubs.ProgressWorldHandler, request, response, nil)
 
-	<-doneProgressing.Done
+	if doneProgressing.Error != nil {
+		println("Error:", doneProgressing.Error)
+	}
+
+	timer := time.NewTimer(2 * time.Second)
+	done := false
+	for {
+		select {
+		case <-doneProgressing.Done:
+			done = true
+		case <-timer.C:
+			timer.Reset(2 * time.Second)
+			res := new(stubs.CountCellResponse)
+			err := client.Call(stubs.CountCellHandler, stubs.Empty{}, res)
+			if err != nil {
+				println("err!:", err)
+			}
+			c.events <- AliveCellsCount{res.Turn, res.Count}
+		}
+		if done {
+			break
+		}
+	}
 
 	world = response.World
 

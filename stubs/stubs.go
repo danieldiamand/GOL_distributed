@@ -1,6 +1,7 @@
 package stubs
 
 var ProgressWorldHandler = "GOLWorkerCommand.WorkerProgressWorld"
+var CountCellHandler = "GOLWorkerCommand.WorkerCountCells"
 
 type Response struct {
 	World [][]byte
