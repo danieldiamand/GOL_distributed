@@ -1,17 +1,18 @@
 package stubs
 
-var ProgressWorldHandler = "GOLWorkerCommand.WorkerProgressWorld"
-var CountCellHandler = "GOLWorkerCommand.WorkerCountCells"
+var ProgressWorldHandler = "GOLWorker.ProgressWorld"
+var CountCellHandler = "GOLWorker.CountCells"
+var PauseHandler = "GOLWorker.Pause"
 
-type Response struct {
-	World [][]byte
-}
-
-type Request struct {
+type ProgressWorldRequest struct {
 	World [][]byte
 	W     int
 	H     int
 	Turns int
+}
+
+type ProgressWorldResponse struct {
+	World [][]byte
 }
 
 type Empty struct {

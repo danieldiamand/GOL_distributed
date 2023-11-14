@@ -34,7 +34,7 @@ type turnCount struct {
 }
 
 // distributor divides the work between workers and interacts with other goroutines.
-func distributor(p Params, c distributorChannels) {
+func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 	//Activate IO to output world:
 	println("here")
 	c.ioCommand <- ioInput
@@ -58,8 +58,8 @@ func distributor(p Params, c distributorChannels) {
 	client, _ := rpc.Dial("tcp", server)
 	defer client.Close()
 
-	request := stubs.Request{World: world, W: p.ImageWidth, H: p.ImageHeight, Turns: p.Turns}
-	response := new(stubs.Response)
+	request := stubs.ProgressWorldRequest{World: world, W: p.ImageWidth, H: p.ImageHeight, Turns: p.Turns}
+	response := new(stubs.ProgressWorldResponse)
 	doneProgressing := client.Go(stubs.ProgressWorldHandler, request, response, nil)
 
 	if doneProgressing.Error != nil {
@@ -71,6 +71,9 @@ func distributor(p Params, c distributorChannels) {
 	for {
 		select {
 		case <-doneProgressing.Done:
+			if doneProgressing.Error != nil {
+				println("progressing world err:", doneProgressing.Error)
+			}
 			done = true
 		case <-timer.C:
 			timer.Reset(2 * time.Second)
@@ -80,6 +83,18 @@ func distributor(p Params, c distributorChannels) {
 				println("err!:", err)
 			}
 			c.events <- AliveCellsCount{res.Turn, res.Count}
+			//case key := <-keyPresses:
+			//	switch key {
+			//	case 'p':
+			//		println("Paused")
+			//		donePausing := client.Go(stubs.PauseHandler, stubs.Empty{}, stubs.Empty{}, nil)
+			//		if donePausing.Error != nil {
+			//			println("pausing err", donePausing.Error)
+			//		}
+			//		<-donePausing.Done
+			//		println("Continuing")
+			//		break
+			//	}
 		}
 		if done {
 			break

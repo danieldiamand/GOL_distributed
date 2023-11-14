@@ -15,14 +15,14 @@ func main() {
 	pAddr := flag.String("port", "8030", "Port to listen on")
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
-	err := rpc.Register(&GOLWorkerCommand{})
+	err := rpc.Register(&GOLWorker{})
 	util.HandleError(err)
 	listener, _ := net.Listen("tcp", "localhost:"+*pAddr)
 	defer listener.Close()
 	rpc.Accept(listener)
 }
 
-type GOLWorkerCommand struct {
+type GOLWorker struct {
 	world    [][]byte
 	turn     int
 	width    int
@@ -31,38 +31,50 @@ type GOLWorkerCommand struct {
 	worldMu  sync.Mutex
 }
 
-func (s *GOLWorkerCommand) WorkerProgressWorld(req stubs.Request, res *stubs.Response) (err error) {
-	s.world = req.World
-	s.width = req.W
-	s.height = req.H
-	s.turn = 0
+func (w *GOLWorker) ProgressWorld(req stubs.ProgressWorldRequest, res *stubs.ProgressWorldResponse) (err error) {
+	w.world = req.World
+	w.width = req.W
+	w.height = req.H
+	w.turn = 0
+	w.isPaused = false
 
-	println("Worker called on world", s.width, "x", s.height)
-	for ; s.turn < req.Turns; s.turn++ {
-		s.worldMu.Lock()
-		s.world = calculateNextState(s.world, s.width, s.height)
-		s.worldMu.Unlock()
+	println("Worker called on world", w.width, "x", w.height)
+	for ; w.turn < req.Turns; w.turn++ {
+		w.worldMu.Lock()
+		w.world = calculateNextState(w.world, w.width, w.height)
+		w.worldMu.Unlock()
 	}
 
-	res.World = s.world
+	res.World = w.world
 	println("world progressed")
 
 	return
 }
 
-func (s *GOLWorkerCommand) WorkerCountCells(req stubs.Empty, res *stubs.CountCellResponse) (err error) {
-	s.worldMu.Lock()
+func (w *GOLWorker) CountCells(req stubs.Empty, res *stubs.CountCellResponse) (err error) {
+	w.worldMu.Lock()
 	cells := 0
-	for y := 0; y < s.height; y++ {
-		for x := 0; x < s.width; x++ {
-			if s.world[y][x] == 255 {
+	for y := 0; y < w.height; y++ {
+		for x := 0; x < w.width; x++ {
+			if w.world[y][x] == 255 {
 				cells++
 			}
 		}
 	}
-	s.worldMu.Unlock()
+	w.worldMu.Unlock()
 	res.Count = cells
-	res.Turn = s.turn
+	res.Turn = w.turn
+	return
+}
+
+func (w *GOLWorker) Pause(req stubs.Empty, res *stubs.Empty) (err error) {
+	if !w.isPaused {
+		w.worldMu.Lock()
+		w.isPaused = true
+	} else {
+		w.worldMu.Unlock()
+		w.isPaused = false
+	}
 	return
 }
 
