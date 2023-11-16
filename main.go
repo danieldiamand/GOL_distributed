@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"runtime"
-
 	"uk.ac.bris.cs/gameoflife/gol"
 	"uk.ac.bris.cs/gameoflife/sdl"
 )
@@ -38,6 +37,15 @@ func main() {
 		10000000000,
 		"Specify the number of turns to process. Defaults to 10000000000.")
 
+	brokerAddress := flag.String(
+		"brokerAdr",
+		"localhost:8032",
+		"The address of Broker. Defaults to localhost:8032")
+	workerAddresses := flag.String(
+		"workerAdrs",
+		"localhost:8031",
+		"The addresses of Workers seperated by a space. Defaults to localhost:8030")
+
 	noVis := flag.Bool(
 		"noVis",
 		false,
@@ -45,6 +53,8 @@ func main() {
 
 	flag.Parse()
 
+	params.BrokerAddress = *brokerAddress
+	params.WorkerAddresses = *workerAddresses
 	fmt.Println("Threads:", params.Threads)
 	fmt.Println("Width:", params.ImageWidth)
 	fmt.Println("Height:", params.ImageHeight)

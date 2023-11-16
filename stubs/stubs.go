@@ -20,15 +20,17 @@ type Empty struct {
 type BrokerProgressWorldReq struct {
 	WorkersAdr []string
 	World      [][]byte
-	W          int
-	H          int
+	Width      int
+	Height     int
 	Turns      int
 }
 
 type WorkerProgressWorldReq struct {
-	World [][]byte
-	W     int
-	H     int
+	World  [][]byte
+	Width  int
+	Height int
+	StartY int
+	EndY   int
 }
 
 type WorldRes struct {

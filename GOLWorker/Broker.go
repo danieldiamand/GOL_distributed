@@ -14,25 +14,26 @@ import (
 )
 
 func main() {
-	pAddr := flag.String("port", "8030", "Port to listen on")
+	pAddr := flag.String("address", "localhost:8032", "Address to listen on")
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
 	err := rpc.Register(&Broker{})
 	util.HandleError(err)
-	listener, _ := net.Listen("tcp", "localhost:"+*pAddr)
+	listener, _ := net.Listen("tcp", *pAddr)
 	defer listener.Close()
 	rpc.Accept(listener)
 }
 
 type Broker struct {
-	world    [][]byte
-	workers  []*rpc.Client
-	turn     int
-	width    int
-	height   int
-	isPaused bool
-	isQuit   bool
-	worldMu  sync.Mutex
+	world          [][]byte
+	workers        []*rpc.Client
+	workerSections []int
+	turn           int
+	width          int
+	height         int
+	isPaused       bool
+	isQuit         bool
+	worldMu        sync.Mutex
 }
 
 func (b *Broker) ProgressWorld(progressReq stubs.BrokerProgressWorldReq, progressRes *stubs.WorldRes) (err error) {
@@ -46,24 +47,47 @@ func (b *Broker) ProgressWorld(progressReq stubs.BrokerProgressWorldReq, progres
 	}
 
 	b.world = progressReq.World
-	b.width = progressReq.W
-	b.height = progressReq.H
+	b.width = progressReq.Width
+	b.height = progressReq.Height
 	b.turn = 0
 	b.isQuit = false
 	b.isPaused = false
 
+	//workerSections determines how the board is divided up into sections
+	workerCount := len(b.workers)
+	sectionLength := b.height / workerCount
+	remainingLength := b.height % workerCount
+	b.workerSections = make([]int, workerCount+1)
+	b.workerSections[0] = 0
+	for i := 1; i < workerCount+1; i++ {
+		b.workerSections[i] = b.workerSections[i-1] + sectionLength
+		if i <= remainingLength {
+			b.workerSections[i]++
+		}
+	}
+
+	//initalize worker response and done lists
+	workerDones := make([]*rpc.Call, workerCount)
+	workerResponses := make([]stubs.WorldRes, workerCount)
+
+	//once there all done collect them up and create new world
 	println("Broker progressing world: ", b.width, "x", b.height)
 	for b.turn < progressReq.Turns && !b.isQuit {
-		worldRequest := stubs.WorkerProgressWorldReq{World: b.world, W: b.width, H: b.height}
-		worldResponse := new(stubs.WorldRes)
-		err := b.workers[0].Call(stubs.WorkerProgressWorld, worldRequest, &worldResponse)
+		//Send work to each worker
+		for i := 0; i < workerCount; i++ {
+			worldRequest := stubs.WorkerProgressWorldReq{World: b.world, Width: b.width, Height: b.height, StartY: b.workerSections[i], EndY: b.workerSections[i+1]}
+			workerDones[i] = b.workers[i].Go(stubs.WorkerProgressWorld, worldRequest, &workerResponses[i], nil)
+		}
 
-		if err != nil {
-			println("worker progress world err", err.Error())
+		//Collect work from each worker
+		var newWorld [][]byte
+		for i := 0; i < workerCount; i++ {
+			<-workerDones[i].Done
+			newWorld = append(newWorld, workerResponses[i].World...)
 		}
 
 		b.worldMu.Lock()
-		b.world = worldResponse.World
+		b.world = newWorld
 		b.turn++
 		b.worldMu.Unlock()
 	}
@@ -128,6 +152,8 @@ func (b *Broker) Quit(req stubs.Empty, res *stubs.Empty) (err error) {
 		}
 		break
 	}
+	println("Quit all workers.")
+
 	//Quit this command
 	println("Broker quit.")
 	b.isQuit = true
@@ -143,6 +169,7 @@ func (b *Broker) Kill(req stubs.Empty, res *stubs.Empty) (err error) {
 		}
 		break
 	}
+	println("Killed all workers.")
 
 	println("Broker killed.")
 	os.Exit(0)

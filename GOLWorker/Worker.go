@@ -13,32 +13,36 @@ import (
 )
 
 func main() {
-	pAddr := flag.String("port", "8031", "Port to listen on")
+	pAddr := flag.String("address", "localhost:8031", "Address to listen on")
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
 	err := rpc.Register(&Worker{})
 	util.HandleError(err)
-	listener, _ := net.Listen("tcp", "localhost:"+*pAddr)
+	listener, _ := net.Listen("tcp", *pAddr)
 	defer listener.Close()
 	rpc.Accept(listener)
 }
 
 type Worker struct {
-	world    [][]byte
-	turn     int
-	width    int
-	height   int
-	isPaused bool
-	isQuit   bool
-	worldMu  sync.Mutex
+	world   [][]byte
+	turn    int
+	width   int
+	height  int
+	startY  int
+	endY    int
+	worldMu sync.Mutex
 }
 
 func (w *Worker) ProgressWorld(req stubs.WorkerProgressWorldReq, res *stubs.WorldRes) (err error) {
 	w.world = req.World
-	w.width = req.W
-	w.height = req.H
+	w.width = req.Width
+	w.height = req.Height
+	w.startY = req.StartY
+	w.endY = req.EndY
 
-	newWorld := calculateNextState(w.world, w.width, w.height)
+	println("Created worker at startY:", w.startY, "endY:", w.endY)
+
+	newWorld := calculateNextState(w.world, w.width, w.startY, w.endY, w.height)
 
 	res.World = newWorld
 	res.Turn = w.turn
@@ -103,21 +107,22 @@ func (w *Worker) Kill(req stubs.Empty, res *stubs.Empty) (err error) {
 }
 
 //using indexing x,y where 0,0 is top left of board
-func calculateNextState(world [][]byte, w, h int) [][]byte {
-	newWorld := make([][]byte, h)
-	for y := 0; y < h; y++ {
-		newWorld[y] = make([]byte, w)
+func calculateNextState(world [][]byte, w, startY, endY, height int) [][]byte {
+
+	newWorld := make([][]byte, endY-startY)
+	for y := startY; y < endY; y++ {
+		newWorld[y-startY] = make([]byte, w)
 		for x := 0; x < w; x++ {
-			count := liveNeighbourCount(y, x, w, h, world)
+			count := liveNeighbourCount(y, x, w, height, world)
 			if world[y][x] == 255 { //if cells alive:
 				if count == 2 || count == 3 { //any live cell with two or three live neighbours is unaffected
-					newWorld[y][x] = 255
+					newWorld[y-startY][x] = 255
 				}
 				//any live cell with fewer than two or more than three live neighbours dies
 				//in go slices are initialized to zero, so we don't need to do anything
 			} else { //cells dead
 				if count == 3 { //any dead cell with exactly three live neighbours becomes alive
-					newWorld[y][x] = 255
+					newWorld[y-startY][x] = 255
 				}
 			}
 		}

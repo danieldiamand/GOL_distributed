@@ -3,6 +3,7 @@ package gol
 import (
 	"fmt"
 	"net/rpc"
+	"strings"
 	"time"
 	"uk.ac.bris.cs/gameoflife/stubs"
 	"uk.ac.bris.cs/gameoflife/util"
@@ -53,8 +54,7 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 	}
 
 	//Connect to broker
-	brokerAdr := "127.0.0.1:8030"
-	broker, err := rpc.Dial("tcp", brokerAdr)
+	broker, err := rpc.Dial("tcp", p.BrokerAddress)
 	if err != nil {
 		println("connecting to broker Err", err.Error())
 	}
@@ -65,10 +65,9 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 		}
 	}(broker)
 
-	println("connected to broker?")
+	workerAddresses := strings.Split(p.WorkerAddresses, " ")
 
-	workerAdrs := []string{"localhost:8031"}
-	worldRequest := stubs.BrokerProgressWorldReq{World: world, W: p.ImageWidth, H: p.ImageHeight, Turns: p.Turns, WorkersAdr: workerAdrs}
+	worldRequest := stubs.BrokerProgressWorldReq{World: world, Width: p.ImageWidth, Height: p.ImageHeight, Turns: p.Turns, WorkersAdr: workerAddresses}
 	worldResponse := new(stubs.WorldRes)
 	doneProgressing := broker.Go(stubs.BrokerProgressWorld, worldRequest, &worldResponse, nil)
 
