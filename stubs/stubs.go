@@ -1,32 +1,41 @@
 package stubs
 
-var ProgressWorldHandler = "GOLWorker.ProgressWorld"
-var CountCellHandler = "GOLWorker.CountCells"
-var PauseHandler = "GOLWorker.Pause"
-var FetchWorldHandler = "GOLWorker.FetchWorld"
-var QuitHandler = "GOLWorker.Quit"
-var KillHandler = "GOLWorker.Kill"
+var WorkerProgressWorld = "Worker.ProgressWorld"
+var WorkerCountCells = "Worker.CountCells"
+var WorkerPause = "Worker.Pause"
+var WorkerFetchWorld = "Worker.FetchWorld"
+var WorkerQuit = "Worker.Quit"
+var WorkerKill = "Worker.Kill"
+
+var BrokerProgressWorld = "Broker.ProgressWorld"
 
 type Empty struct {
 }
 
-type ProgressWorldRequest struct {
+type BrokerProgressWorldReq struct {
+	WorkersAdr []string
+	World      [][]byte
+	W          int
+	H          int
+	Turns      int
+}
+
+type WorkerProgressWorldReq struct {
 	World [][]byte
 	W     int
 	H     int
-	Turns int
 }
 
-type WorldResponse struct {
+type WorldRes struct {
 	World [][]byte
 	Turn  int
 }
 
-type CountCellResponse struct {
+type CountCellRes struct {
 	Count int
 	Turn  int
 }
 
-type PauseResponse struct {
+type PauseRes struct {
 	Output string
 }

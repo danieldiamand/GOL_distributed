@@ -2,11 +2,9 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"math/rand"
 	"net"
 	"net/rpc"
-	"os"
 	"sync"
 	"time"
 	"uk.ac.bris.cs/gameoflife/stubs"
@@ -14,17 +12,17 @@ import (
 )
 
 func main() {
-	pAddr := flag.String("port", "8030", "Port to listen on")
+	pAddr := flag.String("port", "8031", "Port to listen on")
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
-	err := rpc.Register(&GOLWorker{})
+	err := rpc.Register(&Worker{})
 	util.HandleError(err)
 	listener, _ := net.Listen("tcp", "localhost:"+*pAddr)
 	defer listener.Close()
 	rpc.Accept(listener)
 }
 
-type GOLWorker struct {
+type Worker struct {
 	world    [][]byte
 	turn     int
 	width    int
@@ -34,83 +32,74 @@ type GOLWorker struct {
 	worldMu  sync.Mutex
 }
 
-func (w *GOLWorker) ProgressWorld(req stubs.ProgressWorldRequest, res *stubs.WorldResponse) (err error) {
+func (w *Worker) ProgressWorld(req stubs.WorkerProgressWorldReq, res *stubs.WorldRes) (err error) {
 	w.world = req.World
 	w.width = req.W
 	w.height = req.H
-	w.turn = 0
-	w.isQuit = false
-	w.isPaused = false
 
-	println("World progressing started on: ", w.width, "x", w.height)
-	for w.turn < req.Turns && !w.isQuit {
-		newWorld := calculateNextState(w.world, w.width, w.height)
-		w.worldMu.Lock()
-		w.world = newWorld
-		w.turn++
-		w.worldMu.Unlock()
-	}
+	newWorld := calculateNextState(w.world, w.width, w.height)
 
-	res.World = w.world
+	res.World = newWorld
 	res.Turn = w.turn
-	println("World progressing finished")
 
 	return
 }
 
-func (w *GOLWorker) CountCells(req stubs.Empty, res *stubs.CountCellResponse) (err error) {
-	if w.isPaused {
-		res.Count = -1
-		return
-	}
-	w.worldMu.Lock()
-	cells := 0
-	for y := 0; y < w.height; y++ {
-		for x := 0; x < w.width; x++ {
-			if w.world[y][x] == 255 {
-				cells++
-			}
-		}
-	}
-	w.worldMu.Unlock()
-	res.Count = cells
-	res.Turn = w.turn
-	return
-}
-
-func (w *GOLWorker) Pause(req stubs.Empty, res *stubs.PauseResponse) (err error) {
-	if !w.isPaused {
-		println("Pausing on turn", w.turn)
-		w.worldMu.Lock()
-		w.isPaused = true
-		res.Output = fmt.Sprintf("Pausing on turn %d", w.turn)
-	} else {
-		println("Unpausing")
-		w.isPaused = false
-		w.worldMu.Unlock()
-		res.Output = "Continuing"
-	}
-	return
-}
-
-func (w *GOLWorker) FetchWorld(req stubs.Empty, res *stubs.WorldResponse) (err error) {
-	w.worldMu.Lock()
-	res.World = w.world
-	res.Turn = w.turn
-	w.worldMu.Unlock()
-	return
-}
-
-func (w *GOLWorker) Quit(req stubs.Empty, res *stubs.Empty) (err error) {
-	w.isQuit = true
-	return
-}
-
-func (w *GOLWorker) Kill(req stubs.Empty, res *stubs.Empty) (err error) {
-	println("Worker killed.")
-	os.Exit(0)
-	return
-}
+//
+//func (w *Worker) CountCells(req stubs.Empty, res *stubs.CountCellResponse) (err error) {
+//	if w.isPaused {
+//		res.Count = -1
+//		return
+//	}
+//	w.worldMu.Lock()
+//	cells := 0
+//	for y := 0; y < w.height; y++ {
+//		for x := 0; x < w.width; x++ {
+//			if w.world[y][x] == 255 {
+//				cells++
+//			}
+//		}
+//	}
+//	w.worldMu.Unlock()
+//	res.Count = cells
+//	res.Turn = w.turn
+//	return
+//}
+//
+//func (w *Worker) Pause(req stubs.Empty, res *stubs.PauseResponse) (err error) {
+//	if !w.isPaused {
+//		println("Pausing on turn", w.turn)
+//		w.worldMu.Lock()
+//		w.isPaused = true
+//		res.Output = fmt.Sprintf("Pausing on turn %d", w.turn)
+//	} else {
+//		println("Unpausing")
+//		w.isPaused = false
+//		w.worldMu.Unlock()
+//		res.Output = "Continuing"
+//	}
+//	return
+//}
+//
+//func (w *Worker) FetchWorld(req stubs.Empty, res *stubs.WorldResponse) (err error) {
+//	w.worldMu.Lock()
+//	res.World = w.world
+//	res.Turn = w.turn
+//	w.worldMu.Unlock()
+//	return
+//}
+//
+//func (w *Worker) Quit(req stubs.Empty, res *stubs.Empty) (err error) {
+//	println("Worker quit.")
+//	w.isQuit = true
+//	return
+//}
+//
+//func (w *Worker) Kill(req stubs.Empty, res *stubs.Empty) (err error) {
+//	println("Worker killed.")
+//	os.Exit(0)
+//	return
+//}
 
 //using indexing x,y where 0,0 is top left of board
 func calculateNextState(world [][]byte, w, h int) [][]byte {
