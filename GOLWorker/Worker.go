@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"net"
 	"net/rpc"
+	"os"
 	"sync"
 	"time"
 	"uk.ac.bris.cs/gameoflife/stubs"
@@ -89,17 +90,17 @@ func (w *Worker) ProgressWorld(req stubs.WorkerProgressWorldReq, res *stubs.Worl
 //	return
 //}
 //
-//func (w *Worker) Quit(req stubs.Empty, res *stubs.Empty) (err error) {
-//	println("Worker quit.")
-//	w.isQuit = true
-//	return
-//}
-//
-//func (w *Worker) Kill(req stubs.Empty, res *stubs.Empty) (err error) {
-//	println("Worker killed.")
-//	os.Exit(0)
-//	return
-//}
+
+func (w *Worker) Quit(req stubs.Empty, res *stubs.Empty) (err error) {
+	println("Worker quit.")
+	return
+}
+
+func (w *Worker) Kill(req stubs.Empty, res *stubs.Empty) (err error) {
+	println("Worker killed.")
+	os.Exit(0)
+	return
+}
 
 //using indexing x,y where 0,0 is top left of board
 func calculateNextState(world [][]byte, w, h int) [][]byte {
