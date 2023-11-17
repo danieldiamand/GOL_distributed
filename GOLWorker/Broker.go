@@ -74,7 +74,16 @@ func (b *Broker) ProgressWorld(progressReq stubs.BrokerProgressWorldReq, progres
 	println("Broker progressing world: ", b.width, "x", b.height)
 	for b.turn < progressReq.Turns && !b.isQuit {
 		if workerCount == 1 {
-			//TODO: 1 case
+			sectionStart := b.workerSections[0]
+			sectionEnd := b.workerSections[1]
+			worldRequest := stubs.WorkerProgressWorldReq{
+				WorldTop:    b.world[b.height-1],
+				WorldMiddle: b.world[sectionStart:sectionEnd],
+				WorldBot:    b.world[0],
+				Width:       b.width,
+				Height:      sectionEnd - sectionStart,
+			}
+			workerDones[0] = b.workers[0].Go(stubs.WorkerProgressWorld, worldRequest, &workerResponses[0], nil)
 		} else {
 			//First worker
 			sectionStart := b.workerSections[0]
@@ -82,7 +91,7 @@ func (b *Broker) ProgressWorld(progressReq stubs.BrokerProgressWorldReq, progres
 			worldRequest := stubs.WorkerProgressWorldReq{
 				WorldTop:    b.world[b.height-1],
 				WorldMiddle: b.world[sectionStart:sectionEnd],
-				WorldBot:    b.world[sectionEnd], //TODO: potentailly wrong
+				WorldBot:    b.world[sectionEnd],
 				Width:       b.width,
 				Height:      sectionEnd - sectionStart,
 			}
@@ -95,7 +104,7 @@ func (b *Broker) ProgressWorld(progressReq stubs.BrokerProgressWorldReq, progres
 				worldRequest = stubs.WorkerProgressWorldReq{
 					WorldTop:    b.world[sectionStart-1],
 					WorldMiddle: b.world[sectionStart:sectionEnd],
-					WorldBot:    b.world[sectionEnd], //TODO: potentailly wrong
+					WorldBot:    b.world[sectionEnd],
 					Width:       b.width,
 					Height:      sectionEnd - sectionStart,
 				}
