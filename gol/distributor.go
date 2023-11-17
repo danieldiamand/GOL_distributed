@@ -65,7 +65,8 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 		}
 	}(broker)
 
-	workerAddresses := strings.Split(p.WorkerAddresses, " ")
+	workerAddresses := strings.Split(p.WorkerAddresses, ",")
+	println(workerAddresses)
 
 	worldRequest := stubs.BrokerProgressWorldReq{World: world, Width: p.ImageWidth, Height: p.ImageHeight, Turns: p.Turns, WorkersAdr: workerAddresses}
 	worldResponse := new(stubs.WorldRes)

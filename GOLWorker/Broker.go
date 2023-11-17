@@ -73,10 +73,46 @@ func (b *Broker) ProgressWorld(progressReq stubs.BrokerProgressWorldReq, progres
 	//once there all done collect them up and create new world
 	println("Broker progressing world: ", b.width, "x", b.height)
 	for b.turn < progressReq.Turns && !b.isQuit {
-		//Send work to each worker
-		for i := 0; i < workerCount; i++ {
-			worldRequest := stubs.WorkerProgressWorldReq{World: b.world, Width: b.width, Height: b.height, StartY: b.workerSections[i], EndY: b.workerSections[i+1]}
-			workerDones[i] = b.workers[i].Go(stubs.WorkerProgressWorld, worldRequest, &workerResponses[i], nil)
+		if workerCount == 1 {
+			//TODO: 1 case
+		} else {
+			//First worker
+			sectionStart := b.workerSections[0]
+			sectionEnd := b.workerSections[1]
+			worldRequest := stubs.WorkerProgressWorldReq{
+				WorldTop:    b.world[b.height-1],
+				WorldMiddle: b.world[sectionStart:sectionEnd],
+				WorldBot:    b.world[sectionEnd], //TODO: potentailly wrong
+				Width:       b.width,
+				Height:      sectionEnd - sectionStart,
+			}
+			workerDones[0] = b.workers[0].Go(stubs.WorkerProgressWorld, worldRequest, &workerResponses[0], nil)
+
+			//Middle workers
+			for i := 1; i < workerCount-1; i++ {
+				sectionStart = b.workerSections[i]
+				sectionEnd = b.workerSections[i+1]
+				worldRequest = stubs.WorkerProgressWorldReq{
+					WorldTop:    b.world[sectionStart-1],
+					WorldMiddle: b.world[sectionStart:sectionEnd],
+					WorldBot:    b.world[sectionEnd], //TODO: potentailly wrong
+					Width:       b.width,
+					Height:      sectionEnd - sectionStart,
+				}
+				workerDones[i] = b.workers[i].Go(stubs.WorkerProgressWorld, worldRequest, &workerResponses[i], nil)
+			}
+
+			//Final worker
+			sectionStart = b.workerSections[workerCount-1]
+			sectionEnd = b.workerSections[workerCount]
+			worldRequest = stubs.WorkerProgressWorldReq{
+				WorldTop:    b.world[sectionStart-1],
+				WorldMiddle: b.world[sectionStart:sectionEnd],
+				WorldBot:    b.world[0], //TODO: potentailly wrong
+				Width:       b.width,
+				Height:      sectionEnd - sectionStart,
+			} //TODO: edit worker
+			workerDones[workerCount-1] = b.workers[workerCount-1].Go(stubs.WorkerProgressWorld, worldRequest, &workerResponses[workerCount-1], nil)
 		}
 
 		//Collect work from each worker
@@ -85,6 +121,8 @@ func (b *Broker) ProgressWorld(progressReq stubs.BrokerProgressWorldReq, progres
 			<-workerDones[i].Done
 			newWorld = append(newWorld, workerResponses[i].World...)
 		}
+
+		//util.VisualiseMatrix(newWorld, b.width, b.height)
 
 		b.worldMu.Lock()
 		b.world = newWorld
@@ -150,7 +188,6 @@ func (b *Broker) Quit(req stubs.Empty, res *stubs.Empty) (err error) {
 		if err != nil {
 			println("worker quiting err", err.Error())
 		}
-		break
 	}
 	println("Quit all workers.")
 
@@ -163,11 +200,7 @@ func (b *Broker) Quit(req stubs.Empty, res *stubs.Empty) (err error) {
 func (b *Broker) Kill(req stubs.Empty, res *stubs.Empty) (err error) {
 	//Send kill command to all workers
 	for _, worker := range b.workers {
-		err := worker.Call(stubs.WorkerKill, stubs.Empty{}, &stubs.Empty{})
-		if err != nil {
-			println("Worker killing err", err.Error())
-		}
-		break
+		_ = worker.Go(stubs.WorkerKill, stubs.Empty{}, &stubs.Empty{}, nil)
 	}
 	println("Killed all workers.")
 

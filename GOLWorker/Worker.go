@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/rpc"
 	"os"
-	"sync"
 	"time"
 	"uk.ac.bris.cs/gameoflife/stubs"
 	"uk.ac.bris.cs/gameoflife/util"
@@ -24,76 +23,31 @@ func main() {
 }
 
 type Worker struct {
-	world   [][]byte
-	turn    int
-	width   int
-	height  int
-	startY  int
-	endY    int
-	worldMu sync.Mutex
+	world  [][]byte
+	turn   int
+	width  int
+	height int
 }
 
 func (w *Worker) ProgressWorld(req stubs.WorkerProgressWorldReq, res *stubs.WorldRes) (err error) {
-	w.world = req.World
+	w.world = [][]byte{}
+	w.world = append(w.world, req.WorldTop)
+	w.world = append(w.world, req.WorldMiddle...)
+	w.world = append(w.world, req.WorldBot)
+
 	w.width = req.Width
 	w.height = req.Height
-	w.startY = req.StartY
-	w.endY = req.EndY
 
-	println("Created worker at startY:", w.startY, "endY:", w.endY)
+	println("Created worker starting work", len(w.world))
 
-	newWorld := calculateNextState(w.world, w.width, w.startY, w.endY, w.height)
+	newWorld := calculateNextState(w.world, w.width, w.height)
 
+	//util.VisualiseMatrix(newWorld, w.width, w.height)
 	res.World = newWorld
 	res.Turn = w.turn
 
 	return
 }
-
-//
-//func (w *Worker) CountCells(req stubs.Empty, res *stubs.CountCellResponse) (err error) {
-//	if w.isPaused {
-//		res.Count = -1
-//		return
-//	}
-//	w.worldMu.Lock()
-//	cells := 0
-//	for y := 0; y < w.height; y++ {
-//		for x := 0; x < w.width; x++ {
-//			if w.world[y][x] == 255 {
-//				cells++
-//			}
-//		}
-//	}
-//	w.worldMu.Unlock()
-//	res.Count = cells
-//	res.Turn = w.turn
-//	return
-//}
-//
-//func (w *Worker) Pause(req stubs.Empty, res *stubs.PauseResponse) (err error) {
-//	if !w.isPaused {
-//		println("Pausing on turn", w.turn)
-//		w.worldMu.Lock()
-//		w.isPaused = true
-//		res.Output = fmt.Sprintf("Pausing on turn %d", w.turn)
-//	} else {
-//		println("Unpausing")
-//		w.isPaused = false
-//		w.worldMu.Unlock()
-//		res.Output = "Continuing"
-//	}
-//	return
-//}
-//
-//func (w *Worker) FetchWorld(req stubs.Empty, res *stubs.WorldResponse) (err error) {
-//	w.worldMu.Lock()
-//	res.World = w.world
-//	res.Turn = w.turn
-//	w.worldMu.Unlock()
-//	return
-//}
-//
 
 func (w *Worker) Quit(req stubs.Empty, res *stubs.Empty) (err error) {
 	println("Worker quit.")
@@ -107,22 +61,22 @@ func (w *Worker) Kill(req stubs.Empty, res *stubs.Empty) (err error) {
 }
 
 //using indexing x,y where 0,0 is top left of board
-func calculateNextState(world [][]byte, w, startY, endY, height int) [][]byte {
+func calculateNextState(world [][]byte, width, height int) [][]byte {
 
-	newWorld := make([][]byte, endY-startY)
-	for y := startY; y < endY; y++ {
-		newWorld[y-startY] = make([]byte, w)
-		for x := 0; x < w; x++ {
-			count := liveNeighbourCount(y, x, w, height, world)
+	newWorld := make([][]byte, height)
+	for y := 1; y < height+1; y++ {
+		newWorld[y-1] = make([]byte, width)
+		for x := 0; x < width; x++ {
+			count := liveNeighbourCount(y, x, width, world)
 			if world[y][x] == 255 { //if cells alive:
 				if count == 2 || count == 3 { //any live cell with two or three live neighbours is unaffected
-					newWorld[y-startY][x] = 255
+					newWorld[y-1][x] = 255
 				}
 				//any live cell with fewer than two or more than three live neighbours dies
 				//in go slices are initialized to zero, so we don't need to do anything
 			} else { //cells dead
 				if count == 3 { //any dead cell with exactly three live neighbours becomes alive
-					newWorld[y-startY][x] = 255
+					newWorld[y-1][x] = 255
 				}
 			}
 		}
@@ -130,15 +84,15 @@ func calculateNextState(world [][]byte, w, startY, endY, height int) [][]byte {
 	return newWorld
 }
 
-func liveNeighbourCount(y, x, w, h int, world [][]byte) int8 {
+func liveNeighbourCount(y, x, w int, world [][]byte) int8 {
 	var count int8 = 0
-	if world[(y+1+h)%h][(x+1+w)%w] == 255 {
+	if world[y+1][(x+1+w)%w] == 255 {
 		count++
 	}
-	if world[(y+1+h)%h][x] == 255 {
+	if world[y+1][x] == 255 {
 		count++
 	}
-	if world[(y+1+h)%h][(x-1+w)%w] == 255 {
+	if world[y+1][(x-1+w)%w] == 255 {
 		count++
 	}
 	if world[y][(x+1+w)%w] == 255 {
@@ -147,13 +101,13 @@ func liveNeighbourCount(y, x, w, h int, world [][]byte) int8 {
 	if world[y][(x-1+w)%w] == 255 {
 		count++
 	}
-	if world[(y-1+h)%h][(x+1+w)%w] == 255 {
+	if world[y-1][(x+1+w)%w] == 255 {
 		count++
 	}
-	if world[(y-1+h)%h][x] == 255 {
+	if world[y-1][x] == 255 {
 		count++
 	}
-	if world[(y-1+h)%h][(x-1+w)%w] == 255 {
+	if world[y-1][(x-1+w)%w] == 255 {
 		count++
 	}
 	return count

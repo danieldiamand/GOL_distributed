@@ -26,11 +26,11 @@ type BrokerProgressWorldReq struct {
 }
 
 type WorkerProgressWorldReq struct {
-	World  [][]byte
-	Width  int
-	Height int
-	StartY int
-	EndY   int
+	WorldTop    []byte
+	WorldMiddle [][]byte
+	WorldBot    []byte
+	Width       int
+	Height      int
 }
 
 type WorldRes struct {

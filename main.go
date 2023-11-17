@@ -44,7 +44,7 @@ func main() {
 	workerAddresses := flag.String(
 		"workerAdrs",
 		"localhost:8031",
-		"The addresses of Workers seperated by a space. Defaults to localhost:8030")
+		"The addresses of Workers seperated by a comma. Defaults to localhost:8030")
 
 	noVis := flag.Bool(
 		"noVis",
