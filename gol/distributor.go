@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/rpc"
 	"strings"
-	"time"
 	"uk.ac.bris.cs/gameoflife/stubs"
 	"uk.ac.bris.cs/gameoflife/util"
 )
@@ -76,9 +75,9 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 		println("Error:", doneProgressing.Error)
 	}
 
-	timer := time.NewTimer(2 * time.Second)
+	//timer := time.NewTimer(2 * time.Second)
 	done := false
-	killed := false
+	//killed := false
 	for !done {
 		select {
 		case <-doneProgressing.Done:
@@ -87,57 +86,57 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 			}
 			done = true
 			break
-		case <-timer.C:
-			timer.Reset(2 * time.Second)
-			countResponse := new(stubs.CountCellRes)
-			err := broker.Call(stubs.BrokerCountCells, stubs.Empty{}, &countResponse)
-			if err != nil {
-				println("err!:", err.Error())
-			}
-			if countResponse.Count != -1 {
-				c.events <- AliveCellsCount{countResponse.Turn, countResponse.Count}
-			}
-			break
-		case key := <-keyPresses:
-			switch key {
-			case 's':
-				worldResponse := new(stubs.WorldRes)
-				err := broker.Call(stubs.BrokerFetchWorld, stubs.Empty{}, &worldResponse)
-				if err != nil {
-					println("fetch world err", err)
-				}
-				sendWorldToPGM(worldResponse.World, worldResponse.Turn, p, c)
-				break
-			case 'p':
-				pauseResponse := new(stubs.PauseRes)
-				err := broker.Call(stubs.BrokerPause, stubs.Empty{}, &pauseResponse)
-				if err != nil {
-					println("pausing err", err)
-				}
-				println(pauseResponse.Output)
-				break
-			case 'q':
-				err := broker.Call(stubs.BrokerQuit, stubs.Empty{}, &stubs.Empty{})
-				if err != nil {
-					println("quiting err", err.Error())
-				}
-				println("Quiting...")
-				break
-			case 'k':
-				err := broker.Call(stubs.BrokerQuit, stubs.Empty{}, &stubs.Empty{})
-				if err != nil {
-					println("killing err", err.Error())
-				}
-				println("Killing...")
-				killed = true
-				break
-			}
+			//case <-timer.C:
+			//	timer.Reset(2 * time.Second)
+			//	countResponse := new(stubs.CountCellRes)
+			//	err := broker.Call(stubs.BrokerCountCells, stubs.Empty{}, &countResponse)
+			//	if err != nil {
+			//		println("err!:", err.Error())
+			//	}
+			//	if countResponse.Count != -1 {
+			//		c.events <- AliveCellsCount{countResponse.Turn, countResponse.Count}
+			//	}
+			//	break
+			//case key := <-keyPresses:
+			//	switch key {
+			//	case 's':
+			//		worldResponse := new(stubs.WorldRes)
+			//		err := broker.Call(stubs.BrokerFetchWorld, stubs.Empty{}, &worldResponse)
+			//		if err != nil {
+			//			println("fetch world err", err)
+			//		}
+			//		sendWorldToPGM(worldResponse.World, worldResponse.Turn, p, c)
+			//		break
+			//	case 'p':
+			//		pauseResponse := new(stubs.PauseRes)
+			//		err := broker.Call(stubs.BrokerPause, stubs.Empty{}, &pauseResponse)
+			//		if err != nil {
+			//			println("pausing err", err)
+			//		}
+			//		println(pauseResponse.Output)
+			//		break
+			//	case 'q':
+			//		err := broker.Call(stubs.BrokerQuit, stubs.Empty{}, &stubs.Empty{})
+			//		if err != nil {
+			//			println("quiting err", err.Error())
+			//		}
+			//		println("Quiting...")
+			//		break
+			//	case 'k':
+			//		err := broker.Call(stubs.BrokerQuit, stubs.Empty{}, &stubs.Empty{})
+			//		if err != nil {
+			//			println("killing err", err.Error())
+			//		}
+			//		println("Killing...")
+			//		killed = true
+			//		break
+
 		}
 	}
 
-	if killed {
-		_ = broker.Go(stubs.BrokerKill, stubs.Empty{}, &stubs.Empty{}, nil)
-	}
+	//if killed {
+	//	_ = broker.Go(stubs.BrokerKill, stubs.Empty{}, &stubs.Empty{}, nil)
+	//}
 
 	world = worldResponse.World
 	finalTurn := worldResponse.Turn

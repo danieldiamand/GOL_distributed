@@ -1,9 +1,11 @@
 package stubs
 
-var WorkerProgressWorld = "Worker.ProgressWorld"
-var WorkerCountCells = "Worker.CountCells"
-var WorkerPause = "Worker.Pause"
-var WorkerFetchWorld = "Worker.FetchWorld"
+var WorkerInit = "Worker.Init"
+var WorkerStart = "Worker.Start"
+var WorkerProgress = "Worker.Progress"
+var WorkerHalo = "Worker.Halo"
+var WorkerCount = "Worker.Count"
+var WorkerFetch = "Worker.Fetch"
 var WorkerQuit = "Worker.Quit"
 var WorkerKill = "Worker.Kill"
 
@@ -14,7 +16,8 @@ var BrokerFetchWorld = "Broker.FetchWorld"
 var BrokerQuit = "Broker.Quit"
 var BrokerKill = "Broker.Kill"
 
-type Empty struct {
+type None struct {
+	//Empty
 }
 
 type BrokerProgressWorldReq struct {
@@ -25,12 +28,22 @@ type BrokerProgressWorldReq struct {
 	Turns      int
 }
 
-type WorkerProgressWorldReq struct {
-	WorldTop    []byte
-	WorldMiddle [][]byte
-	WorldBot    []byte
-	Width       int
-	Height      int
+type WorkerInitReq struct {
+	World  [][]byte
+	Width  int
+	Height int
+}
+
+type WorkerStartReq struct {
+	AboveAdr string
+}
+
+type Turn struct {
+	Turn int
+}
+
+type WorkerHaloReqRes struct {
+	Halo []byte
 }
 
 type WorldRes struct {
