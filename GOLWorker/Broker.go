@@ -79,7 +79,6 @@ func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.Worl
 		}
 	}
 
-	//Response/Done slices
 	workerDones := make([]*rpc.Call, b.workerCount)
 
 	//Call Init on each worker
@@ -120,14 +119,14 @@ func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.Worl
 	turn := 0
 	workerTurnRes := make([]stubs.Turn, b.workerCount)
 	for turn < b.finalTurn {
-		//Call progress on each worker
+		//Call progressHelper on each worker
 		for i := 0; i < b.workerCount; i++ {
 			workerDones[i] = b.workers[i].Go(stubs.WorkerProgress, stubs.None{}, &workerTurnRes[i], nil)
 		}
 		//ensure each start has completed
 		for i := 0; i < b.workerCount; i++ {
 			if workerDones[i].Error != nil {
-				println("Worker progress err", workerDones[i].Error.Error())
+				println("Worker progressHelper err", workerDones[i].Error.Error())
 				os.Exit(1)
 			}
 			<-workerDones[i].Done
@@ -136,8 +135,51 @@ func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.Worl
 		turn = workerTurnRes[0].Turn
 	}
 
+	//Collect final world from workers
+	workerFetchRes := make([]stubs.WorldRes, b.workerCount)
+	for i := 0; i < b.workerCount; i++ {
+		workerDones[i] = b.workers[i].Go(stubs.WorkerFetch, stubs.None{}, &workerFetchRes[i], nil)
+	}
+
+	var finalWorld [][]byte
+	//ensure each fetch has completed
+	for i := 0; i < b.workerCount; i++ {
+		if workerDones[i].Error != nil {
+			println("Worker fetch err", workerDones[i].Error.Error())
+			os.Exit(1)
+		}
+		<-workerDones[i].Done
+		finalWorld = append(finalWorld, workerFetchRes[i].World...)
+	}
+	finalTurn := workerFetchRes[0].Turn
+
+	res.World = finalWorld
+	res.Turn = finalTurn
+
 	println("Broker finished progressing world")
 
+	return
+}
+
+func (b *Broker) Count(req stubs.None, res *stubs.CountCellRes) (err error) {
+	workerCountRes := make([]stubs.CountCellRes, b.workerCount)
+	workerDones := make([]*rpc.Call, b.workerCount)
+	for i := 0; i < b.workerCount; i++ {
+		workerDones[i] = b.workers[i].Go(stubs.WorkerCount, stubs.None{}, &workerCountRes[i], nil)
+	}
+
+	count := 0
+	for i := 0; i < b.workerCount; i++ {
+		if workerDones[i].Error != nil {
+			println("count err", workerDones[i].Error.Error())
+		}
+		<-workerDones[i].Done
+		count += workerCountRes[i].Count
+		println("worker", i, "on turn", workerCountRes[i].Turn)
+	}
+
+	res.Count = count
+	res.Turn = workerCountRes[0].Turn
 	return
 }
 

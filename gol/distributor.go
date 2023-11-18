@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/rpc"
 	"strings"
+	"time"
 	"uk.ac.bris.cs/gameoflife/stubs"
 	"uk.ac.bris.cs/gameoflife/util"
 )
@@ -75,7 +76,7 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 		println("Error:", doneProgressing.Error)
 	}
 
-	//timer := time.NewTimer(2 * time.Second)
+	timer := time.NewTimer(2 * time.Second)
 	done := false
 	//killed := false
 	for !done {
@@ -86,17 +87,17 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 			}
 			done = true
 			break
-			//case <-timer.C:
-			//	timer.Reset(2 * time.Second)
-			//	countResponse := new(stubs.CountCellRes)
-			//	err := broker.Call(stubs.BrokerCountCells, stubs.Empty{}, &countResponse)
-			//	if err != nil {
-			//		println("err!:", err.Error())
-			//	}
-			//	if countResponse.Count != -1 {
-			//		c.events <- AliveCellsCount{countResponse.Turn, countResponse.Count}
-			//	}
-			//	break
+		case <-timer.C:
+			timer.Reset(2 * time.Second)
+			countResponse := new(stubs.CountCellRes)
+			err := broker.Call(stubs.BrokerCount, stubs.None{}, &countResponse)
+			if err != nil {
+				println("err!:", err.Error())
+			}
+			if countResponse.Count != -1 {
+				c.events <- AliveCellsCount{countResponse.Turn, countResponse.Count}
+			}
+			break
 			//case key := <-keyPresses:
 			//	switch key {
 			//	case 's':

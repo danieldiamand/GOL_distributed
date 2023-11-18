@@ -44,39 +44,41 @@ func (w *Worker) Init(req stubs.WorkerInitReq, res *stubs.None) (err error) {
 	w.height = req.Height
 	w.worldChan = make(chan [][]byte, 1)
 	w.botHalo = make(chan []byte, 1)
-	println("matrix on init. w:", w.width, "h:", w.height)
-	util.VisualiseMatrix(w.world, w.width, w.height)
+	//println("matrix on init. w:", w.width, "h:", w.height)
+	//util.VisualiseMatrix(w.world, w.width, w.height)
 	return
 }
 
 // Start : Called by Broker once to start communication between workers
 func (w *Worker) Start(req stubs.WorkerStartReq, res *stubs.None) (err error) {
+	//Connect with worker above
 	w.workerAbove, err = rpc.Dial("tcp", req.AboveAdr)
 	if err != nil {
 		println("Error connecting to worker above", err.Error())
 	}
-	progress(w)
+	//Do first communication with neighbouring workers
+	progressHelper(w)
 	return
 }
 
-// Progress : Called by Broker to progress the worker one turn
+// Progress : Called by Broker to progressHelper the worker one turn
 func (w *Worker) Progress(req stubs.None, res *stubs.Turn) (err error) {
 	//Get world when done calculating
 	w.worldMu.Lock()
 	w.world = <-w.worldChan
 	w.turn++
-	println("matrix on turn", w.turn)
-	util.VisualiseMatrix(w.world, w.width, w.height)
+	//println("matrix on turn", w.turn)
+	//util.VisualiseMatrix(w.world, w.width, w.height)
 	w.worldMu.Unlock()
 
 	//Send receive neighbours halo/send world to calculate
-	progress(w)
+	progressHelper(w)
 	res.Turn = w.turn
 	return
 }
 
-// progress : helper command
-func progress(w *Worker) {
+// progressHelper : helper command
+func progressHelper(w *Worker) {
 	//Share+Get halo region w neighbour above
 	topHaloRes := stubs.WorkerHaloReqRes{}
 	err := w.workerAbove.Call(stubs.WorkerHalo, stubs.WorkerHaloReqRes{Halo: w.world[0]}, &topHaloRes)
@@ -140,7 +142,6 @@ func (w *Worker) Kill(req stubs.None, res *stubs.None) (err error) {
 
 //using indexing x,y where 0,0 is top left of board
 func calculateNextState(world [][]byte, topPad, botPad []byte, worldChan chan<- [][]byte, width, height int) {
-	println("in calc", width, height)
 	var oldWorld [][]byte
 	oldWorld = append(oldWorld, topPad)
 	oldWorld = append(oldWorld, world...)
@@ -150,7 +151,7 @@ func calculateNextState(world [][]byte, topPad, botPad []byte, worldChan chan<- 
 		newWorld[y-1] = make([]byte, width)
 		for x := 0; x < width; x++ {
 			count := liveNeighbourCount(y, x, width, oldWorld)
-			if oldWorld[y][x] == 255 { //if cells alive:
+			if oldWorld[y][x] == 255 { //if cells alive:-
 				if count == 2 || count == 3 { //any live cell with two or three live neighbours is unaffected
 					newWorld[y-1][x] = 255
 				}
