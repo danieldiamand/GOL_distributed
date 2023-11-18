@@ -120,7 +120,7 @@ func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.Worl
 
 	//MAIN LOOP:
 	workerTurnRes := make([]stubs.Turn, b.workerCount)
-	for b.currentTurn < b.finalTurn {
+	for b.currentTurn < b.finalTurn && !b.isQuit {
 		//Call progressHelper on each worker
 		for i := 0; i < b.workerCount; i++ {
 			workerDones[i] = b.workers[i].Go(stubs.WorkerProgress, stubs.None{}, &workerTurnRes[i], nil)
@@ -141,7 +141,23 @@ func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.Worl
 	//Collect final world from workers
 	res.Turn, res.World = collectWorldFromWorkers(b)
 
-	println("Broker finished progressing world")
+	//Quit all workers
+	for i := 0; i < b.workerCount; i++ {
+		workerDones[i] = b.workers[i].Go(stubs.WorkerQuit, stubs.None{}, &stubs.None{}, nil)
+	}
+
+	for i := 0; i < b.workerCount; i++ {
+		if workerDones[i].Error != nil {
+			println("quit err", workerDones[i].Error.Error())
+		}
+		<-workerDones[i].Done
+	}
+
+	if b.isQuit {
+		println("Broker quit all workers")
+	} else {
+		println("Broker finished calculating world")
+	}
 
 	return
 }
@@ -215,21 +231,11 @@ func collectWorldFromWorkers(b *Broker) (int, [][]byte) {
 	return workerFetchRes[0].Turn, world
 }
 
-//func (b *Broker) Quit(req stubs.Empty, res *stubs.Empty) (err error) {
-//	//Send quit command to all workers
-//	for _, worker := range b.workers {
-//		err := worker.Call(stubs.WorkerQuit, stubs.Empty{}, &stubs.Empty{})
-//		if err != nil {
-//			println("worker quiting err", err.Error())
-//		}
-//	}
-//	println("Quit all workers.")
-//
-//	//Quit this command
-//	println("Broker quit.")
-//	b.isQuit = true
-//	return
-//}
+func (b *Broker) Quit(req stubs.None, res *stubs.None) (err error) {
+	b.isQuit = true
+	return
+}
+
 //
 //func (b *Broker) Kill(req stubs.Empty, res *stubs.Empty) (err error) {
 //	//Send kill command to all workers

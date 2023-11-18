@@ -131,6 +131,7 @@ func (w *Worker) Fetch(req stubs.None, res *stubs.WorldRes) (err error) {
 
 func (w *Worker) Quit(req stubs.None, res *stubs.None) (err error) {
 	println("Worker quit.")
+	w.turn = -1
 	return
 }
 

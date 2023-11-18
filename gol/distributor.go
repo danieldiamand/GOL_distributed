@@ -116,13 +116,13 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 				}
 				println(pauseResponse.Output)
 				break
-				//	case 'q':
-				//		err := broker.Call(stubs.BrokerQuit, stubs.Empty{}, &stubs.Empty{})
-				//		if err != nil {
-				//			println("quiting err", err.Error())
-				//		}
-				//		println("Quiting...")
-				//		break
+			case 'q':
+				err := broker.Call(stubs.BrokerQuit, stubs.None{}, &stubs.None{})
+				if err != nil {
+					println("quiting err", err.Error())
+				}
+				println("Quiting...")
+				break
 				//	case 'k':
 				//		err := broker.Call(stubs.BrokerQuit, stubs.Empty{}, &stubs.Empty{})
 				//		if err != nil {
