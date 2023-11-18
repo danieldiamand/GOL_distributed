@@ -43,6 +43,7 @@ type Broker struct {
 }
 
 func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.WorldRes) (err error) {
+	print("Broker created.")
 	b.savedWorld = req.World
 	b.savedTurn = 0
 	b.currentTurn = 0
@@ -106,7 +107,6 @@ func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.Worl
 	workerStartReq := stubs.WorkerStartReq{AboveAdr: b.workersAdr[b.workerCount-1]} //the top worker connects to the bottom
 	workerDones[0] = b.workers[0].Go(stubs.WorkerStart, workerStartReq, &stubs.None{}, nil)
 	for i := 1; i < b.workerCount; i++ {
-		println(b.workersAdr[i-1])
 		workerStartReq = stubs.WorkerStartReq{AboveAdr: b.workersAdr[i-1]} //all other workers connect to the one above
 		workerDones[i] = b.workers[i].Go(stubs.WorkerStart, workerStartReq, &stubs.None{}, nil)
 	}
@@ -236,15 +236,13 @@ func (b *Broker) Quit(req stubs.None, res *stubs.None) (err error) {
 	return
 }
 
-//
-//func (b *Broker) Kill(req stubs.Empty, res *stubs.Empty) (err error) {
-//	//Send kill command to all workers
-//	for _, worker := range b.workers {
-//		_ = worker.Go(stubs.WorkerKill, stubs.Empty{}, &stubs.Empty{}, nil)
-//	}
-//	println("Killed all workers.")
-//
-//	println("Broker killed.")
-//	os.Exit(0)
-//	return
-//}
+func (b *Broker) Kill(req stubs.None, res *stubs.None) (err error) {
+	//Quit all workers
+	for i := 0; i < b.workerCount; i++ {
+		_ = b.workers[i].Go(stubs.WorkerKill, stubs.None{}, &stubs.None{}, nil)
+	}
+	println("Killed all workers.")
+	println("Broker killed.")
+	os.Exit(0)
+	return
+}
