@@ -98,8 +98,8 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 				c.events <- AliveCellsCount{countResponse.Turn, countResponse.Count}
 			}
 			break
-			//case key := <-keyPresses:
-			//	switch key {
+		case key := <-keyPresses:
+			switch key {
 			//	case 's':
 			//		worldResponse := new(stubs.WorldRes)
 			//		err := broker.Call(stubs.BrokerFetchWorld, stubs.Empty{}, &worldResponse)
@@ -108,30 +108,31 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 			//		}
 			//		sendWorldToPGM(worldResponse.World, worldResponse.Turn, p, c)
 			//		break
-			//	case 'p':
-			//		pauseResponse := new(stubs.PauseRes)
-			//		err := broker.Call(stubs.BrokerPause, stubs.Empty{}, &pauseResponse)
-			//		if err != nil {
-			//			println("pausing err", err)
-			//		}
-			//		println(pauseResponse.Output)
-			//		break
-			//	case 'q':
-			//		err := broker.Call(stubs.BrokerQuit, stubs.Empty{}, &stubs.Empty{})
-			//		if err != nil {
-			//			println("quiting err", err.Error())
-			//		}
-			//		println("Quiting...")
-			//		break
-			//	case 'k':
-			//		err := broker.Call(stubs.BrokerQuit, stubs.Empty{}, &stubs.Empty{})
-			//		if err != nil {
-			//			println("killing err", err.Error())
-			//		}
-			//		println("Killing...")
-			//		killed = true
-			//		break
+			case 'p':
+				pauseResponse := new(stubs.PauseRes)
+				err := broker.Call(stubs.BrokerPause, stubs.None{}, &pauseResponse)
+				if err != nil {
+					println("pausing err", err)
+				}
+				println(pauseResponse.Output)
+				break
+				//	case 'q':
+				//		err := broker.Call(stubs.BrokerQuit, stubs.Empty{}, &stubs.Empty{})
+				//		if err != nil {
+				//			println("quiting err", err.Error())
+				//		}
+				//		println("Quiting...")
+				//		break
+				//	case 'k':
+				//		err := broker.Call(stubs.BrokerQuit, stubs.Empty{}, &stubs.Empty{})
+				//		if err != nil {
+				//			println("killing err", err.Error())
+				//		}
+				//		println("Killing...")
+				//		killed = true
+				//		break
 
+			}
 		}
 	}
 

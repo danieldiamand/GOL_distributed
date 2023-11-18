@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"math/rand"
 	"net"
 	"net/rpc"
@@ -33,16 +34,18 @@ type Broker struct {
 	savedTurn  int
 	finalTurn  int
 
-	width    int
-	height   int
-	isPaused bool
-	isQuit   bool
-	worldMu  sync.Mutex
+	currentTurn int
+	width       int
+	height      int
+	isPaused    bool
+	isQuit      bool
+	progressMu  sync.Mutex
 }
 
 func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.WorldRes) (err error) {
 	b.savedWorld = req.World
 	b.savedTurn = 0
+	b.currentTurn = 0
 	b.finalTurn = req.Turns
 	b.width = req.Width
 	b.height = req.Height
@@ -116,9 +119,8 @@ func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.Worl
 	}
 
 	//MAIN LOOP:
-	turn := 0
 	workerTurnRes := make([]stubs.Turn, b.workerCount)
-	for turn < b.finalTurn {
+	for b.currentTurn < b.finalTurn {
 		//Call progressHelper on each worker
 		for i := 0; i < b.workerCount; i++ {
 			workerDones[i] = b.workers[i].Go(stubs.WorkerProgress, stubs.None{}, &workerTurnRes[i], nil)
@@ -131,8 +133,9 @@ func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.Worl
 			}
 			<-workerDones[i].Done
 		}
-
-		turn = workerTurnRes[0].Turn
+		b.progressMu.Lock()
+		b.currentTurn = workerTurnRes[0].Turn
+		b.progressMu.Unlock()
 	}
 
 	//Collect final world from workers
@@ -162,6 +165,11 @@ func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.Worl
 }
 
 func (b *Broker) Count(req stubs.None, res *stubs.CountCellRes) (err error) {
+	if b.isPaused {
+		res.Count = -1
+		return
+	}
+
 	workerCountRes := make([]stubs.CountCellRes, b.workerCount)
 	workerDones := make([]*rpc.Call, b.workerCount)
 	for i := 0; i < b.workerCount; i++ {
@@ -183,20 +191,20 @@ func (b *Broker) Count(req stubs.None, res *stubs.CountCellRes) (err error) {
 	return
 }
 
-//func (b *Broker) Pause(req stubs.Empty, res *stubs.PauseRes) (err error) {
-//	if !b.isPaused {
-//		println("Pausing on turn", b.turn)
-//		b.worldMu.Lock()
-//		b.isPaused = true
-//		res.Output = fmt.Sprintf("Pausing on turn %d", b.turn)
-//	} else {
-//		println("Unpausing")
-//		b.isPaused = false
-//		b.worldMu.Unlock()
-//		res.Output = "Continuing"
-//	}
-//	return
-//}
+func (b *Broker) Pause(req stubs.None, res *stubs.PauseRes) (err error) {
+	if !b.isPaused {
+		println("Pausing on turn", b.currentTurn)
+		b.progressMu.Lock()
+		b.isPaused = true
+		res.Output = fmt.Sprintf("Pausing on turn %d", b.currentTurn)
+	} else {
+		println("Unpausing")
+		b.isPaused = false
+		b.progressMu.Unlock()
+		res.Output = "Continuing"
+	}
+	return
+}
 
 //func (b *Broker) FetchWorld(req stubs.Empty, res *stubs.WorldRes) (err error) {
 //	b.worldMu.Lock()
