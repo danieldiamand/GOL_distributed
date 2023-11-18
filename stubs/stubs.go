@@ -12,7 +12,7 @@ var WorkerKill = "Worker.Kill"
 var BrokerProgressWorld = "Broker.ProgressWorld"
 var BrokerCount = "Broker.Count"
 var BrokerPause = "Broker.Pause"
-var BrokerFetchWorld = "Broker.FetchWorld"
+var BrokerFetchWorld = "Broker.Fetch"
 var BrokerQuit = "Broker.Quit"
 var BrokerKill = "Broker.Kill"
 

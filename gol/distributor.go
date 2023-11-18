@@ -100,14 +100,14 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 			break
 		case key := <-keyPresses:
 			switch key {
-			//	case 's':
-			//		worldResponse := new(stubs.WorldRes)
-			//		err := broker.Call(stubs.BrokerFetchWorld, stubs.Empty{}, &worldResponse)
-			//		if err != nil {
-			//			println("fetch world err", err)
-			//		}
-			//		sendWorldToPGM(worldResponse.World, worldResponse.Turn, p, c)
-			//		break
+			case 's':
+				worldResponse := new(stubs.WorldRes)
+				err := broker.Call(stubs.BrokerFetchWorld, stubs.None{}, &worldResponse)
+				if err != nil {
+					println("fetch world err", err)
+				}
+				sendWorldToPGM(worldResponse.World, worldResponse.Turn, p, c)
+				break
 			case 'p':
 				pauseResponse := new(stubs.PauseRes)
 				err := broker.Call(stubs.BrokerPause, stubs.None{}, &pauseResponse)
@@ -172,8 +172,10 @@ func calculateAliveCells(world [][]byte, p Params) []util.Cell {
 
 //Prepares io for output and sends board down it a pixel at a time
 func sendWorldToPGM(world [][]byte, turn int, p Params, c distributorChannels) {
+	fileName := fmt.Sprintf("%dx%dx%d", p.ImageHeight, p.ImageWidth, turn)
+	println("Created file", fileName, ".pgm")
 	c.ioCommand <- ioOutput
-	c.ioFilename <- fmt.Sprintf("%dx%dx%d", p.ImageHeight, p.ImageWidth, turn)
+	c.ioFilename <- fileName
 	for y := 0; y < p.ImageHeight; y++ {
 		for x := 0; x < p.ImageWidth; x++ {
 			c.ioOutput <- world[y][x]

@@ -139,25 +139,7 @@ func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.Worl
 	}
 
 	//Collect final world from workers
-	workerFetchRes := make([]stubs.WorldRes, b.workerCount)
-	for i := 0; i < b.workerCount; i++ {
-		workerDones[i] = b.workers[i].Go(stubs.WorkerFetch, stubs.None{}, &workerFetchRes[i], nil)
-	}
-
-	var finalWorld [][]byte
-	//ensure each fetch has completed
-	for i := 0; i < b.workerCount; i++ {
-		if workerDones[i].Error != nil {
-			println("Worker fetch err", workerDones[i].Error.Error())
-			os.Exit(1)
-		}
-		<-workerDones[i].Done
-		finalWorld = append(finalWorld, workerFetchRes[i].World...)
-	}
-	finalTurn := workerFetchRes[0].Turn
-
-	res.World = finalWorld
-	res.Turn = finalTurn
+	res.Turn, res.World = collectWorldFromWorkers(b)
 
 	println("Broker finished progressing world")
 
@@ -206,13 +188,32 @@ func (b *Broker) Pause(req stubs.None, res *stubs.PauseRes) (err error) {
 	return
 }
 
-//func (b *Broker) FetchWorld(req stubs.Empty, res *stubs.WorldRes) (err error) {
-//	b.worldMu.Lock()
-//	res.World = b.world
-//	res.Turn = b.turn
-//	b.worldMu.Unlock()
-//	return
-//}
+func (b *Broker) Fetch(req stubs.None, res *stubs.WorldRes) (err error) {
+	res.Turn, res.World = collectWorldFromWorkers(b)
+	return
+}
+
+func collectWorldFromWorkers(b *Broker) (int, [][]byte) {
+	workerDones := make([]*rpc.Call, b.workerCount)
+	workerFetchRes := make([]stubs.WorldRes, b.workerCount)
+	b.progressMu.Lock()
+	for i := 0; i < b.workerCount; i++ {
+		workerDones[i] = b.workers[i].Go(stubs.WorkerFetch, stubs.None{}, &workerFetchRes[i], nil)
+	}
+	b.progressMu.Unlock()
+
+	var world [][]byte
+	//ensure each fetch has completed
+	for i := 0; i < b.workerCount; i++ {
+		if workerDones[i].Error != nil {
+			println("Worker fetch err", workerDones[i].Error.Error())
+			os.Exit(1)
+		}
+		<-workerDones[i].Done
+		world = append(world, workerFetchRes[i].World...)
+	}
+	return workerFetchRes[0].Turn, world
+}
 
 //func (b *Broker) Quit(req stubs.Empty, res *stubs.Empty) (err error) {
 //	//Send quit command to all workers
