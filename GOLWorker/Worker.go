@@ -46,8 +46,10 @@ func (w *Worker) Init(req stubs.WorkerInitReq, res *stubs.None) (err error) {
 	w.worldChan = make(chan [][]byte, 1)
 	w.botHalo = make(chan []byte, 1)
 	w.PrintProgress = req.PrintProgress
-	//println("matrix on init. w:", w.width, "h:", w.height)
-	//util.VisualiseMatrix(w.world, w.width, w.height)
+	if w.PrintProgress {
+		println("On Turn", w.turn)
+		util.VisualiseMatrix(w.world, w.width, w.height)
+	}
 	return
 }
 
@@ -70,7 +72,7 @@ func (w *Worker) Progress(req stubs.None, res *stubs.Turn) (err error) {
 	w.world = <-w.worldChan
 	w.turn++
 	if w.PrintProgress {
-		println("world on turn", w.turn)
+		println("On Turn", w.turn)
 		util.VisualiseMatrix(w.world, w.width, w.height)
 	}
 

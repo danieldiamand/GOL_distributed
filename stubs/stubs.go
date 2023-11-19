@@ -9,10 +9,13 @@ var WorkerFetch = "Worker.Fetch"
 var WorkerQuit = "Worker.Quit"
 var WorkerKill = "Worker.Kill"
 
+var BrokerInit = "Broker.Init"
+var BrokerStart = "Broker.Start"
+var BrokerProgressAll = "Broker.ProgressAll"
 var BrokerProgressWorld = "Broker.ProgressWorld"
 var BrokerCount = "Broker.Count"
 var BrokerPause = "Broker.Pause"
-var BrokerFetchWorld = "Broker.Fetch"
+var BrokerFetch = "Broker.Fetch"
 var BrokerQuit = "Broker.Quit"
 var BrokerKill = "Broker.Kill"
 
@@ -26,13 +29,22 @@ type None struct {
 	//Empty
 }
 
-type BrokerProgressWorldReq struct {
-	WorkersAdr    []string
+type Error struct {
+	Code int
+	Msg  string
+}
+
+type BrokerInitReq struct {
 	World         [][]byte
 	Width         int
 	Height        int
 	Turns         int
 	PrintProgress bool
+}
+
+type BrokerStartReq struct {
+	WorkerCount     int
+	WorkerAddresses []string
 }
 
 type WorkerInitReq struct {
@@ -55,10 +67,8 @@ type WorkerHaloReqRes struct {
 }
 
 type WorldRes struct {
-	World     [][]byte
-	Turn      int
-	ErrorCode int
-	ErrorMsg  string
+	World [][]byte
+	Turn  int
 }
 
 type CountCellRes struct {

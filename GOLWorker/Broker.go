@@ -25,51 +25,67 @@ func main() {
 }
 
 type Broker struct {
+	world       [][]byte
+	currentTurn int
+	finalTurn   int
+	width       int
+	height      int
+
+	printProgress bool
+
 	workers        []*rpc.Client
 	workersAdr     []string
 	workerSections []int
 	workerCount    int
 
-	savedWorld [][]byte
-	savedTurn  int
-	finalTurn  int
-
-	PrintProgress bool
-	currentTurn   int
-	width         int
-	height        int
-	isPaused      bool
-	isQuit        bool
-	progressMu    sync.Mutex
+	isPaused   bool
+	isQuit     bool
+	progressMu sync.Mutex
 }
 
-func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.WorldRes) (err error) {
+/*
+TODO:
+setup like worker
+init (what if we already have world!?)
+start (connect to the workers)
+progressAll
+fetch
 
-	b.savedWorld = req.World
-	b.savedTurn = 0
+*/
+
+func (b *Broker) Init(req stubs.BrokerInitReq, res *stubs.None) (err error) {
+	/*
+		TODO: what if already initalized, halfway through?
+	*/
+
+	b.world = req.World
 	b.currentTurn = 0
 	b.finalTurn = req.Turns
 	b.width = req.Width
 	b.height = req.Height
-	b.PrintProgress = req.PrintProgress
-	println("Broker created, on world", b.width, "x", b.height, ".")
+	b.printProgress = req.PrintProgress
 
-	//Try and connect to each worker
-	b.workersAdr = req.WorkersAdr
+	println("Broker created, on world", b.width, "x", b.height, ".")
+	if b.printProgress {
+		println("World at init. Turn:", b.currentTurn)
+		util.VisualiseMatrix(b.world, b.width, b.height)
+	}
+
+	return
+}
+
+func (b *Broker) Start(req stubs.BrokerStartReq, res *stubs.None) (err error) {
+	//rpc Dial each worker
+	b.workers = make([]*rpc.Client, 0)
+	b.workersAdr = make([]string, 0)
 	b.workerCount = 0
-	for _, workerAdr := range b.workersAdr {
+	for _, workerAdr := range req.WorkerAddresses {
 		worker, err := rpc.Dial("tcp", workerAdr)
 		if err != nil {
-			/*
-				TODO: handle this error properly, should ask user if they want to
-				work with one less user or try reconnecting
-
-				TOOD: rather than having distrubotr having an address have
-				different types of response!!!
-			*/
-			println("Error connecting to worker", err.Error())
+			//TODO return err here
 		}
 		b.workers = append(b.workers, worker)
+		b.workersAdr = append(b.workersAdr, workerAdr)
 		b.workerCount++
 	}
 
@@ -86,21 +102,23 @@ func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.Worl
 		}
 	}
 
+	//Distribute world to workers
 	workerDones := make([]*rpc.Call, b.workerCount)
 
 	//Call Init on each worker
 	for i := 0; i < b.workerCount; i++ {
 		workerInitReq := stubs.WorkerInitReq{
-			World:         b.savedWorld[b.workerSections[i]:b.workerSections[i+1]],
+			World:         b.world[b.workerSections[i]:b.workerSections[i+1]],
 			Width:         b.width,
 			Height:        b.workerSections[i+1] - b.workerSections[i],
-			PrintProgress: b.PrintProgress,
+			PrintProgress: b.printProgress,
 		}
 		workerDones[i] = b.workers[i].Go(stubs.WorkerInit, workerInitReq, &stubs.None{}, nil)
 	}
-	//ensure each init has completed
+	//ensure each Init has completed
 	for i := 0; i < b.workerCount; i++ {
 		if workerDones[i].Error != nil {
+			//TODO: think about this error
 			println("Worker init err", workerDones[i].Error.Error())
 		}
 		<-workerDones[i].Done
@@ -113,16 +131,23 @@ func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.Worl
 		workerStartReq = stubs.WorkerStartReq{AboveAdr: b.workersAdr[i-1]} //all other workers connect to the one above
 		workerDones[i] = b.workers[i].Go(stubs.WorkerStart, workerStartReq, &stubs.None{}, nil)
 	}
-	//ensure each start has completed
+	//ensure each Start has completed
 	for i := 0; i < b.workerCount; i++ {
 		if workerDones[i].Error != nil {
+			//TODO: think about this error
 			println("Worker start err", workerDones[i].Error.Error())
 		}
 		<-workerDones[i].Done
 	}
 
+	return //Return no error
+}
+
+func (b *Broker) ProgressAll(req stubs.WorldRes, res *stubs.None) (err error) {
+
 	//MAIN LOOP:
 	workerTurnRes := make([]stubs.Turn, b.workerCount)
+	workerDones := make([]*rpc.Call, b.workerCount)
 	for b.currentTurn < b.finalTurn && !b.isQuit {
 		//Call progressHelper on each worker
 		for i := 0; i < b.workerCount; i++ {
@@ -131,6 +156,7 @@ func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.Worl
 		//ensure each start has completed
 		for i := 0; i < b.workerCount; i++ {
 			if workerDones[i].Error != nil {
+				//TODO: handle error here
 				println("Worker progressHelper err", workerDones[i].Error.Error())
 				os.Exit(1)
 			}
@@ -139,33 +165,12 @@ func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.Worl
 		b.progressMu.Lock()
 		b.currentTurn = workerTurnRes[0].Turn
 		b.progressMu.Unlock()
-	}
-
-	//Collect final world from workers
-	res.Turn, res.World = collectWorldFromWorkers(b)
-
-	if b.PrintProgress {
-		println("final world on turn:", b.currentTurn)
-		util.VisualiseMatrix(res.World, b.width, b.height)
-	}
-
-	//Quit all workers
-	for i := 0; i < b.workerCount; i++ {
-		workerDones[i] = b.workers[i].Go(stubs.WorkerQuit, stubs.None{}, &stubs.None{}, nil)
-	}
-
-	for i := 0; i < b.workerCount; i++ {
-		if workerDones[i].Error != nil {
-			println("quit err", workerDones[i].Error.Error())
+		if b.printProgress {
+			println("On Turn", b.currentTurn)
 		}
-		<-workerDones[i].Done
 	}
 
-	if b.isQuit {
-		println("Broker quit.")
-	} else {
-		println("Broker finished calculating world at turn", b.currentTurn, "out of", b.finalTurn)
-	}
+	println("Broker finished calculating world at turn", b.currentTurn, "out of", b.finalTurn)
 
 	return
 }
@@ -214,6 +219,10 @@ func (b *Broker) Pause(req stubs.None, res *stubs.PauseRes) (err error) {
 
 func (b *Broker) Fetch(req stubs.None, res *stubs.WorldRes) (err error) {
 	res.Turn, res.World = collectWorldFromWorkers(b)
+	if b.printProgress {
+		println("World at fetch. Turn:", b.currentTurn)
+		util.VisualiseMatrix(res.World, b.width, b.height)
+	}
 	return
 }
 
@@ -240,12 +249,14 @@ func collectWorldFromWorkers(b *Broker) (int, [][]byte) {
 }
 
 func (b *Broker) Quit(req stubs.None, res *stubs.None) (err error) {
-	b.isQuit = true
+	//Quit all workers
+	println("Broker quit.")
+	b.isQuit = true //stops progressAll loop
 	return
 }
 
 func (b *Broker) Kill(req stubs.None, res *stubs.None) (err error) {
-	//Quit all workers
+	//Kill all workers
 	for i := 0; i < b.workerCount; i++ {
 		_ = b.workers[i].Go(stubs.WorkerKill, stubs.None{}, &stubs.None{}, nil)
 	}

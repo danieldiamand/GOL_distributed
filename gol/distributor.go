@@ -65,22 +65,33 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 		}
 	}(broker)
 
+	//Init broker
+	err = broker.Call(stubs.BrokerInit, stubs.BrokerInitReq{
+		World:         world,
+		Width:         p.ImageWidth,
+		Height:        p.ImageHeight,
+		Turns:         p.Turns,
+		PrintProgress: p.PrintProgress,
+	},
+		&stubs.None{},
+	)
+	if err != nil {
+		//TODO error handling!!!!
+		println("hanndle mmeme")
+	}
+
+	//Start broker (communicate with workers)
 	workerAddresses := strings.Split(p.WorkerAddresses, ",")
-	println(workerAddresses)
+	err = broker.Call(stubs.BrokerStart, stubs.BrokerStartReq{
+		WorkerCount:     p.Threads,
+		WorkerAddresses: workerAddresses,
+	}, &stubs.None{},
+	)
 
-	worldRequest := stubs.BrokerProgressWorldReq{World: world, Width: p.ImageWidth, Height: p.ImageHeight, Turns: p.Turns, WorkersAdr: workerAddresses, PrintProgress: p.PrintProgress}
-	worldResponse := new(stubs.WorldRes)
-	doneProgressing := broker.Go(stubs.BrokerProgressWorld, worldRequest, &worldResponse, nil)
-
-	if doneProgressing.Error != nil {
-		println("Error:", doneProgressing.Error)
-	}
-
-	//Displayed world used to keep track of what is on screen
-	displayedWorld := make([][]byte, p.ImageHeight)
-	for y := 0; y < p.ImageHeight; y++ {
-		displayedWorld[y] = make([]byte, p.ImageWidth)
-	}
+	//Progress broker
+	doneProgressing := broker.Go(stubs.BrokerProgressAll,
+		stubs.None{},
+		&stubs.None{}, nil)
 
 	timer := time.NewTimer(2 * time.Second)
 	killed := false
@@ -108,7 +119,7 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 			switch key {
 			case 's':
 				worldResponse := new(stubs.WorldRes)
-				err := broker.Call(stubs.BrokerFetchWorld, stubs.None{}, &worldResponse)
+				err := broker.Call(stubs.BrokerFetch, stubs.None{}, &worldResponse)
 				if err != nil {
 					println("fetch world err", err)
 				}
@@ -136,27 +147,15 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 				}
 				killed = true
 				break
-			case 'd':
-				worldResponse := new(stubs.WorldRes)
-				err := broker.Call(stubs.BrokerFetchWorld, worldRequest, &worldResponse)
-				if err != nil {
-					println("fetch error", err.Error())
-				}
-
-				println("Displaying world at turn", worldResponse.Turn)
-				for y := 0; y < p.ImageHeight; y++ {
-					for x := 0; x < p.ImageWidth; x++ {
-						if displayedWorld[y][x] != worldResponse.World[y][x] { //if bits flipped since last display
-
-							c.events <- CellFlipped{worldResponse.Turn, util.Cell{x, y}}
-						}
-					}
-				}
-				//update last displayed world to world just displayed
-				displayedWorld = worldResponse.World
-				break
 			}
 		}
+	}
+
+	//TODO: fetch world
+	worldResponse := stubs.WorldRes{}
+	err = broker.Call(stubs.BrokerFetch, stubs.None{}, &worldResponse)
+	if err != nil {
+		println("ahhhhhhh")
 	}
 
 	if killed {
