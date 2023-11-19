@@ -34,22 +34,25 @@ type Broker struct {
 	savedTurn  int
 	finalTurn  int
 
-	currentTurn int
-	width       int
-	height      int
-	isPaused    bool
-	isQuit      bool
-	progressMu  sync.Mutex
+	PrintProgress bool
+	currentTurn   int
+	width         int
+	height        int
+	isPaused      bool
+	isQuit        bool
+	progressMu    sync.Mutex
 }
 
 func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.WorldRes) (err error) {
-	print("Broker created.")
+
 	b.savedWorld = req.World
 	b.savedTurn = 0
 	b.currentTurn = 0
 	b.finalTurn = req.Turns
 	b.width = req.Width
 	b.height = req.Height
+	b.PrintProgress = req.PrintProgress
+	println("Broker created, on world", b.width, "x", b.height, ".")
 
 	//Try and connect to each worker
 	b.workersAdr = req.WorkersAdr
@@ -88,9 +91,10 @@ func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.Worl
 	//Call Init on each worker
 	for i := 0; i < b.workerCount; i++ {
 		workerInitReq := stubs.WorkerInitReq{
-			World:  b.savedWorld[b.workerSections[i]:b.workerSections[i+1]],
-			Width:  b.width,
-			Height: b.workerSections[i+1] - b.workerSections[i],
+			World:         b.savedWorld[b.workerSections[i]:b.workerSections[i+1]],
+			Width:         b.width,
+			Height:        b.workerSections[i+1] - b.workerSections[i],
+			PrintProgress: b.PrintProgress,
 		}
 		workerDones[i] = b.workers[i].Go(stubs.WorkerInit, workerInitReq, &stubs.None{}, nil)
 	}
@@ -103,7 +107,6 @@ func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.Worl
 	}
 
 	//Call Start on each worker
-	println(b.workersAdr[b.workerCount-1])
 	workerStartReq := stubs.WorkerStartReq{AboveAdr: b.workersAdr[b.workerCount-1]} //the top worker connects to the bottom
 	workerDones[0] = b.workers[0].Go(stubs.WorkerStart, workerStartReq, &stubs.None{}, nil)
 	for i := 1; i < b.workerCount; i++ {
@@ -141,6 +144,11 @@ func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.Worl
 	//Collect final world from workers
 	res.Turn, res.World = collectWorldFromWorkers(b)
 
+	if b.PrintProgress {
+		println("final world on turn:", b.currentTurn)
+		util.VisualiseMatrix(res.World, b.width, b.height)
+	}
+
 	//Quit all workers
 	for i := 0; i < b.workerCount; i++ {
 		workerDones[i] = b.workers[i].Go(stubs.WorkerQuit, stubs.None{}, &stubs.None{}, nil)
@@ -154,9 +162,9 @@ func (b *Broker) ProgressWorld(req stubs.BrokerProgressWorldReq, res *stubs.Worl
 	}
 
 	if b.isQuit {
-		println("Broker quit all workers")
+		println("Broker quit.")
 	} else {
-		println("Broker finished calculating world")
+		println("Broker finished calculating world at turn", b.currentTurn, "out of", b.finalTurn)
 	}
 
 	return

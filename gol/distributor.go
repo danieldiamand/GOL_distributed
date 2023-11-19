@@ -47,7 +47,7 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 		for x := 0; x < p.ImageWidth; x++ {
 			cell := <-c.ioInput
 			if cell == 255 {
-				c.events <- CellFlipped{0, util.Cell{x, y}}
+				c.events <- CellFlipped{0, util.Cell{X: x, Y: y}}
 			}
 			world[y][x] = cell
 		}
@@ -68,12 +68,18 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 	workerAddresses := strings.Split(p.WorkerAddresses, ",")
 	println(workerAddresses)
 
-	worldRequest := stubs.BrokerProgressWorldReq{World: world, Width: p.ImageWidth, Height: p.ImageHeight, Turns: p.Turns, WorkersAdr: workerAddresses}
+	worldRequest := stubs.BrokerProgressWorldReq{World: world, Width: p.ImageWidth, Height: p.ImageHeight, Turns: p.Turns, WorkersAdr: workerAddresses, PrintProgress: p.PrintProgress}
 	worldResponse := new(stubs.WorldRes)
 	doneProgressing := broker.Go(stubs.BrokerProgressWorld, worldRequest, &worldResponse, nil)
 
 	if doneProgressing.Error != nil {
 		println("Error:", doneProgressing.Error)
+	}
+
+	//Displayed world used to keep track of what is on screen
+	displayedWorld := make([][]byte, p.ImageHeight)
+	for y := 0; y < p.ImageHeight; y++ {
+		displayedWorld[y] = make([]byte, p.ImageWidth)
 	}
 
 	timer := time.NewTimer(2 * time.Second)
@@ -130,7 +136,25 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 				}
 				killed = true
 				break
+			case 'd':
+				worldResponse := new(stubs.WorldRes)
+				err := broker.Call(stubs.BrokerFetchWorld, worldRequest, &worldResponse)
+				if err != nil {
+					println("fetch error", err.Error())
+				}
 
+				println("Displaying world at turn", worldResponse.Turn)
+				for y := 0; y < p.ImageHeight; y++ {
+					for x := 0; x < p.ImageWidth; x++ {
+						if displayedWorld[y][x] != worldResponse.World[y][x] { //if bits flipped since last display
+
+							c.events <- CellFlipped{worldResponse.Turn, util.Cell{x, y}}
+						}
+					}
+				}
+				//update last displayed world to world just displayed
+				displayedWorld = worldResponse.World
+				break
 			}
 		}
 	}

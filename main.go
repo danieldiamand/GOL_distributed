@@ -38,21 +38,27 @@ func main() {
 		"Specify the number of turns to process. Defaults to 10000000000.")
 
 	brokerAddress := flag.String(
-		"brokerAdr",
+		"brokerAddress",
 		"localhost:8032",
 		"The address of Broker. Defaults to localhost:8032")
 	workerAddresses := flag.String(
-		"workerAdrs",
-		"localhost:8031",
-		"The addresses of Workers seperated by a comma. Defaults to localhost:8030")
+		"workerAddresses",
+		"localhost:8030,localhost:8031",
+		"The addresses of Workers seperated by a comma, will throw if less than threads. Defaults to localhost:8030")
 
 	noVis := flag.Bool(
 		"noVis",
 		false,
 		"Disables the SDL window, so there is no visualisation during the tests.")
 
+	printProgress := flag.Bool(
+		"printProgress",
+		false,
+		"Workers and Broker print out each turn of world for debugging purposes (only works for low turns and short worlds)")
+
 	flag.Parse()
 
+	params.PrintProgress = *printProgress
 	params.BrokerAddress = *brokerAddress
 	params.WorkerAddresses = *workerAddresses
 	fmt.Println("Threads:", params.Threads)

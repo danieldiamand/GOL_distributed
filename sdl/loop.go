@@ -24,6 +24,8 @@ sdlLoop:
 					keyPresses <- 'q'
 				case sdl.K_k:
 					keyPresses <- 'k'
+				case sdl.K_d:
+					keyPresses <- 'd'
 				}
 			}
 		}

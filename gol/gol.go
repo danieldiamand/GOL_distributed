@@ -6,6 +6,7 @@ type Params struct {
 	Threads         int
 	ImageWidth      int
 	ImageHeight     int
+	PrintProgress   bool
 	BrokerAddress   string
 	WorkerAddresses string
 }

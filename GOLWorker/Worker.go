@@ -24,15 +24,16 @@ func main() {
 }
 
 type Worker struct {
-	topHalo     []byte
-	world       [][]byte
-	botHalo     chan []byte
-	worldMu     sync.Mutex
-	worldChan   chan [][]byte
-	turn        int
-	width       int
-	height      int
-	workerAbove *rpc.Client
+	topHalo       []byte
+	world         [][]byte
+	botHalo       chan []byte
+	worldMu       sync.Mutex
+	worldChan     chan [][]byte
+	turn          int
+	width         int
+	height        int
+	PrintProgress bool
+	workerAbove   *rpc.Client
 }
 
 // Init : Called by Broker to first place data inside a worker
@@ -44,6 +45,7 @@ func (w *Worker) Init(req stubs.WorkerInitReq, res *stubs.None) (err error) {
 	w.height = req.Height
 	w.worldChan = make(chan [][]byte, 1)
 	w.botHalo = make(chan []byte, 1)
+	w.PrintProgress = req.PrintProgress
 	//println("matrix on init. w:", w.width, "h:", w.height)
 	//util.VisualiseMatrix(w.world, w.width, w.height)
 	return
@@ -67,8 +69,11 @@ func (w *Worker) Progress(req stubs.None, res *stubs.Turn) (err error) {
 	w.worldMu.Lock()
 	w.world = <-w.worldChan
 	w.turn++
-	//println("matrix on turn", w.turn)
-	//util.VisualiseMatrix(w.world, w.width, w.height)
+	if w.PrintProgress {
+		println("world on turn", w.turn)
+		util.VisualiseMatrix(w.world, w.width, w.height)
+	}
+
 	w.worldMu.Unlock()
 
 	//Send receive neighbours halo/send world to calculate

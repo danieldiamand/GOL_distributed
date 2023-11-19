@@ -16,22 +16,30 @@ var BrokerFetchWorld = "Broker.Fetch"
 var BrokerQuit = "Broker.Quit"
 var BrokerKill = "Broker.Kill"
 
+const (
+	Success                int = 0
+	MoreThreadsThanWorkers     = 1
+	CannotConnectToWorker      = 2
+)
+
 type None struct {
 	//Empty
 }
 
 type BrokerProgressWorldReq struct {
-	WorkersAdr []string
-	World      [][]byte
-	Width      int
-	Height     int
-	Turns      int
+	WorkersAdr    []string
+	World         [][]byte
+	Width         int
+	Height        int
+	Turns         int
+	PrintProgress bool
 }
 
 type WorkerInitReq struct {
-	World  [][]byte
-	Width  int
-	Height int
+	World         [][]byte
+	Width         int
+	Height        int
+	PrintProgress bool
 }
 
 type WorkerStartReq struct {
@@ -47,8 +55,10 @@ type WorkerHaloReqRes struct {
 }
 
 type WorldRes struct {
-	World [][]byte
-	Turn  int
+	World     [][]byte
+	Turn      int
+	ErrorCode int
+	ErrorMsg  string
 }
 
 type CountCellRes struct {
