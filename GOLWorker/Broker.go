@@ -18,8 +18,15 @@ func main() {
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
 	err := rpc.Register(&Broker{})
-	util.HandleError(err)
+	if err != nil {
+		println("Error registering broker:", err.Error())
+		return
+	}
 	listener, _ := net.Listen("tcp", *pAddr)
+	if err != nil {
+		println("Error listening on network:", err.Error())
+		return
+	}
 	defer listener.Close()
 	rpc.Accept(listener)
 }

@@ -17,8 +17,15 @@ func main() {
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
 	err := rpc.Register(&Worker{})
-	util.HandleError(err)
-	listener, _ := net.Listen("tcp", *pAddr)
+	if err != nil {
+		println("Error registering worker:", err.Error())
+		return
+	}
+	listener, err := net.Listen("tcp", *pAddr)
+	if err != nil {
+		println("Error listening on network:", err.Error())
+		return
+	}
 	defer listener.Close()
 	rpc.Accept(listener)
 }
