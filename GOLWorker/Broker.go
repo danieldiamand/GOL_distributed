@@ -28,7 +28,13 @@ func main() {
 		println("Error in Broker listening: ", err.Error())
 		return
 	}
-	defer listener.Close()
+	defer func(listener net.Listener) {
+		err := listener.Close()
+		if err != nil {
+			println("Error closing Broker")
+			return
+		}
+	}(listener)
 	rpc.Accept(listener)
 }
 
@@ -51,20 +57,13 @@ type Broker struct {
 	progressMu sync.Mutex
 }
 
-/*
-TODO:
-setup like worker
-init (what if we already have world!?)
-start (connect to the workers)
-progressAll
-fetch
-
-*/
+func (b *Broker) QueryState(req stubs.None, res *stubs.BrokerStateRes) (err error) {
+	res.StillCalculating = b.currentTurn != b.finalTurn
+	res.Details = fmt.Sprintf("%dx%d on turn: %d of %d", b.width, b.height, b.currentTurn, b.finalTurn)
+	return
+}
 
 func (b *Broker) Init(req stubs.BrokerInitReq, res *stubs.None) (err error) {
-	/*
-		TODO: what if already initalized, halfway through?
-	*/
 
 	b.world = req.World
 	b.currentTurn = 0

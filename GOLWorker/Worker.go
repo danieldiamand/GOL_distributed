@@ -81,10 +81,6 @@ func (w *Worker) Progress(req stubs.None, res *stubs.Turn) (err error) {
 	w.worldMu.Lock()
 	w.world = <-w.worldChan
 	w.turn++
-	if w.PrintProgress {
-		println("On Turn", w.turn)
-		util.VisualiseMatrix(w.world, w.width, w.height)
-	}
 
 	w.worldMu.Unlock()
 
@@ -112,7 +108,7 @@ func progressHelper(w *Worker) (err error) {
 	botHalo := <-w.botHalo
 
 	//Start calculating first turn
-	go calculateNextState(w.world, topHalo, botHalo, w.worldChan, w.width, w.height)
+	go calculateNextState(w.world, topHalo, botHalo, w.worldChan, w.width, w.height, w.turn, w.PrintProgress)
 	return
 }
 
@@ -163,7 +159,21 @@ func (w *Worker) Kill(req stubs.None, res *stubs.None) (err error) {
 }
 
 //using indexing x,y where 0,0 is top left of board
-func calculateNextState(world [][]byte, topPad, botPad []byte, worldChan chan<- [][]byte, width, height int) {
+func calculateNextState(world [][]byte, topPad, botPad []byte, worldChan chan<- [][]byte, width, height, turn int, printProgress bool) {
+	if printProgress {
+		println("On Turn", turn)
+		println("toppad:")
+		var padBox [][]byte
+		padBox = append(padBox, topPad)
+		println("top pad:")
+		util.VisualiseMatrix(padBox, width, 1)
+		util.VisualiseMatrix(world, width, height)
+		var padBox2 [][]byte
+		padBox2 = append(padBox2, botPad)
+		println("botpad")
+		util.VisualiseMatrix(padBox2, width, 1)
+	}
+
 	var oldWorld [][]byte
 	oldWorld = append(oldWorld, topPad)
 	oldWorld = append(oldWorld, world...)
