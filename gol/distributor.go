@@ -56,12 +56,14 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 	//Connect to broker
 	broker, err := rpc.Dial("tcp", p.BrokerAddress)
 	if err != nil {
-		println("connecting to broker Err", err.Error())
+		println("Error in distributor connecting to Broker:", err.Error())
+		close(c.events)
+		return
 	}
 	defer func(broker *rpc.Client) {
 		err := broker.Close()
 		if err != nil {
-			println("error closing broker", err.Error())
+			println("Error in distributor closing Broker:", err.Error())
 		}
 	}(broker)
 
@@ -76,8 +78,9 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 		&stubs.None{},
 	)
 	if err != nil {
-		//TODO error handling!!!!
-		println("hanndle mmeme")
+		println("Error in distributor calling Init on Broker:", err.Error())
+		close(c.events)
+		return
 	}
 
 	//Start broker (communicate with workers)
@@ -87,6 +90,12 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 		WorkerAddresses: workerAddresses,
 	}, &stubs.None{},
 	)
+
+	if err != nil {
+		println("Error in distributor calling Start on Broker:", err.Error())
+		close(c.events)
+		return
+	}
 
 	//Progress broker
 	doneProgressing := broker.Go(stubs.BrokerProgressAll,
@@ -100,7 +109,9 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 		select {
 		case <-doneProgressing.Done:
 			if doneProgressing.Error != nil {
-				println("progressing world err:", doneProgressing.Error.Error())
+				println("Error in distributor calling ProgressAll on Broker:", doneProgressing.Error.Error())
+				close(c.events)
+				return
 			}
 			done = true
 			break
@@ -109,7 +120,9 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 			countResponse := new(stubs.CountCellRes)
 			err := broker.Call(stubs.BrokerCount, stubs.None{}, &countResponse)
 			if err != nil {
-				println("err!:", err.Error())
+				println("Error in distributor calling Count on Broker:", err.Error())
+				close(c.events)
+				return
 			}
 			if countResponse.Count != -1 {
 				c.events <- AliveCellsCount{countResponse.Turn, countResponse.Count}
@@ -121,7 +134,9 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 				worldResponse := new(stubs.WorldRes)
 				err := broker.Call(stubs.BrokerFetch, stubs.None{}, &worldResponse)
 				if err != nil {
-					println("fetch world err", err)
+					println("Error in distributor calling Fetch on Broker:", err.Error())
+					close(c.events)
+					return
 				}
 				sendWorldToPGM(worldResponse.World, worldResponse.Turn, p, c)
 				break
@@ -129,21 +144,21 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 				pauseResponse := new(stubs.PauseRes)
 				err := broker.Call(stubs.BrokerPause, stubs.None{}, &pauseResponse)
 				if err != nil {
-					println("pausing err", err)
+					println("Error in distributor calling Pause on Broker:", err.Error())
 				}
 				println(pauseResponse.Output)
 				break
 			case 'q':
 				err := broker.Call(stubs.BrokerQuit, stubs.None{}, &stubs.None{})
 				if err != nil {
-					println("quiting err", err.Error())
+					println("Error in distributor calling Quit on Broker:", err.Error())
 				}
 				println("Quiting...")
 				break
 			case 'k':
 				err := broker.Call(stubs.BrokerQuit, stubs.None{}, &stubs.None{})
 				if err != nil {
-					println("killing err", err.Error())
+					println("Error in distributor calling Kill on Broker:", err.Error())
 				}
 				killed = true
 				break
@@ -151,11 +166,10 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 		}
 	}
 
-	//TODO: fetch world
 	worldResponse := stubs.WorldRes{}
 	err = broker.Call(stubs.BrokerFetch, stubs.None{}, &worldResponse)
 	if err != nil {
-		println("ahhhhhhh")
+		println("Error in distributor calling Fetch on Broker:", err.Error())
 	}
 
 	if killed {

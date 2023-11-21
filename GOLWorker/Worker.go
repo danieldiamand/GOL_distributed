@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"flag"
+	"fmt"
 	"math/rand"
 	"net"
 	"net/rpc"
@@ -65,7 +67,8 @@ func (w *Worker) Start(req stubs.WorkerStartReq, res *stubs.None) (err error) {
 	//Connect with worker above
 	w.workerAbove, err = rpc.Dial("tcp", req.AboveAdr)
 	if err != nil {
-		println("Error connecting to worker above", err.Error())
+		println("Error in Worker connecting to Worker: ", err.Error())
+		return errors.New(fmt.Sprint("Error in Worker connecting to Worker: ", err.Error()))
 	}
 	//Do first communication with neighbouring workers
 	progressHelper(w)
@@ -86,18 +89,22 @@ func (w *Worker) Progress(req stubs.None, res *stubs.Turn) (err error) {
 	w.worldMu.Unlock()
 
 	//Send receive neighbours halo/send world to calculate
-	progressHelper(w)
+	err = progressHelper(w)
+	if err != nil {
+		return err
+	}
 	res.Turn = w.turn
 	return
 }
 
 // progressHelper : helper command
-func progressHelper(w *Worker) {
+func progressHelper(w *Worker) (err error) {
 	//Share+Get halo region w neighbour above
 	topHaloRes := stubs.WorkerHaloReqRes{}
-	err := w.workerAbove.Call(stubs.WorkerHalo, stubs.WorkerHaloReqRes{Halo: w.world[0]}, &topHaloRes)
+	err = w.workerAbove.Call(stubs.WorkerHalo, stubs.WorkerHaloReqRes{Halo: w.world[0]}, &topHaloRes)
 	if err != nil {
 		println("Error doing Halo exchange", err.Error())
+		return errors.New(fmt.Sprint("Error in Worker calling Halo on Worker: ", err.Error()))
 	}
 
 	//Ensure we have received halo region from neighbour below
@@ -106,6 +113,7 @@ func progressHelper(w *Worker) {
 
 	//Start calculating first turn
 	go calculateNextState(w.world, topHalo, botHalo, w.worldChan, w.width, w.height)
+	return
 }
 
 // Halo : Called by below neighbour Worker to exchange halo regions.
@@ -137,7 +145,6 @@ func (w *Worker) Count(req stubs.None, res *stubs.CountCellRes) (err error) {
 
 // Fetch : Called by Broker to get the world stored in worker
 func (w *Worker) Fetch(req stubs.None, res *stubs.WorldRes) (err error) {
-	//TODO: is this a race condition, is the world actively changing???
 	res.World = w.world
 	res.Turn = w.turn
 	return

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"math/rand"
@@ -19,12 +20,12 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 	err := rpc.Register(&Broker{})
 	if err != nil {
-		println("Error registering broker:", err.Error())
+		println("Error in Broker registering: ", err.Error())
 		return
 	}
 	listener, _ := net.Listen("tcp", *pAddr)
 	if err != nil {
-		println("Error listening on network:", err.Error())
+		println("Error in Broker listening: ", err.Error())
 		return
 	}
 	defer listener.Close()
@@ -89,7 +90,7 @@ func (b *Broker) Start(req stubs.BrokerStartReq, res *stubs.None) (err error) {
 	for _, workerAdr := range req.WorkerAddresses {
 		worker, err := rpc.Dial("tcp", workerAdr)
 		if err != nil {
-			//TODO return err here
+			return errors.New(fmt.Sprint("Error in Broker connecting to Worker: ", err.Error()))
 		}
 		b.workers = append(b.workers, worker)
 		b.workersAdr = append(b.workersAdr, workerAdr)
@@ -125,8 +126,8 @@ func (b *Broker) Start(req stubs.BrokerStartReq, res *stubs.None) (err error) {
 	//ensure each Init has completed
 	for i := 0; i < b.workerCount; i++ {
 		if workerDones[i].Error != nil {
-			//TODO: think about this error
 			println("Worker init err", workerDones[i].Error.Error())
+			return errors.New(fmt.Sprint("Error in Broker calling Init on Worker: ", workerDones[i].Error.Error()))
 		}
 		<-workerDones[i].Done
 	}
@@ -141,8 +142,8 @@ func (b *Broker) Start(req stubs.BrokerStartReq, res *stubs.None) (err error) {
 	//ensure each Start has completed
 	for i := 0; i < b.workerCount; i++ {
 		if workerDones[i].Error != nil {
-			//TODO: think about this error
 			println("Worker start err", workerDones[i].Error.Error())
+			return errors.New(fmt.Sprint("Error in Broker calling Start on Worker: ", workerDones[i].Error.Error()))
 		}
 		<-workerDones[i].Done
 	}
@@ -163,9 +164,7 @@ func (b *Broker) ProgressAll(req stubs.WorldRes, res *stubs.None) (err error) {
 		//ensure each start has completed
 		for i := 0; i < b.workerCount; i++ {
 			if workerDones[i].Error != nil {
-				//TODO: handle error here
-				println("Worker progressHelper err", workerDones[i].Error.Error())
-				os.Exit(1)
+				return errors.New(fmt.Sprint("Error in Broker calling Progress on Worker: ", workerDones[i].Error.Error()))
 			}
 			<-workerDones[i].Done
 		}
@@ -197,7 +196,7 @@ func (b *Broker) Count(req stubs.None, res *stubs.CountCellRes) (err error) {
 	count := 0
 	for i := 0; i < b.workerCount; i++ {
 		if workerDones[i].Error != nil {
-			println("count err", workerDones[i].Error.Error())
+			return errors.New(fmt.Sprint("Error in Broker calling Count on Worker: ", workerDones[i].Error.Error()))
 		}
 		<-workerDones[i].Done
 		count += workerCountRes[i].Count
@@ -225,7 +224,10 @@ func (b *Broker) Pause(req stubs.None, res *stubs.PauseRes) (err error) {
 }
 
 func (b *Broker) Fetch(req stubs.None, res *stubs.WorldRes) (err error) {
-	res.Turn, res.World = collectWorldFromWorkers(b)
+	res.Turn, res.World, err = collectWorldFromWorkers(b)
+	if err != nil {
+		return errors.New(fmt.Sprint("Error in Broker calling Fetch on Worker: ", err.Error()))
+	}
 	if b.printProgress {
 		println("World at fetch. Turn:", b.currentTurn)
 		util.VisualiseMatrix(res.World, b.width, b.height)
@@ -233,7 +235,7 @@ func (b *Broker) Fetch(req stubs.None, res *stubs.WorldRes) (err error) {
 	return
 }
 
-func collectWorldFromWorkers(b *Broker) (int, [][]byte) {
+func collectWorldFromWorkers(b *Broker) (int, [][]byte, error) {
 	workerDones := make([]*rpc.Call, b.workerCount)
 	workerFetchRes := make([]stubs.WorldRes, b.workerCount)
 	b.progressMu.Lock()
@@ -246,13 +248,12 @@ func collectWorldFromWorkers(b *Broker) (int, [][]byte) {
 	//ensure each fetch has completed
 	for i := 0; i < b.workerCount; i++ {
 		if workerDones[i].Error != nil {
-			println("Worker fetch err", workerDones[i].Error.Error())
-			os.Exit(1)
+			return 0, nil, errors.New(fmt.Sprint(workerDones[i].Error.Error()))
 		}
 		<-workerDones[i].Done
 		world = append(world, workerFetchRes[i].World...)
 	}
-	return workerFetchRes[0].Turn, world
+	return workerFetchRes[0].Turn, world, nil
 }
 
 func (b *Broker) Quit(req stubs.None, res *stubs.None) (err error) {
