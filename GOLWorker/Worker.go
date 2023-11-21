@@ -42,6 +42,7 @@ type Worker struct {
 	width         int
 	height        int
 	PrintProgress bool
+	worldBuilt    chan bool
 	workerAbove   *rpc.Client
 }
 
@@ -53,6 +54,8 @@ func (w *Worker) Init(req stubs.WorkerInitReq, res *stubs.None) (err error) {
 	w.width = req.Width
 	w.height = req.Height
 	w.worldChan = make(chan [][]byte, 1)
+	w.worldBuilt = make(chan bool, 1)
+	w.topHalo = []byte{}
 	w.botHalo = make(chan []byte, 1)
 	w.PrintProgress = req.PrintProgress
 	if w.PrintProgress {
@@ -65,6 +68,7 @@ func (w *Worker) Init(req stubs.WorkerInitReq, res *stubs.None) (err error) {
 // Start : Called by Broker once to start communication between workers
 func (w *Worker) Start(req stubs.WorkerStartReq, res *stubs.None) (err error) {
 	//Connect with worker above
+	w.worldBuilt <- true
 	w.workerAbove, err = rpc.Dial("tcp", req.AboveAdr)
 	if err != nil {
 		println("Error in Worker connecting to Worker: ", err.Error())
@@ -81,8 +85,8 @@ func (w *Worker) Progress(req stubs.None, res *stubs.Turn) (err error) {
 	w.worldMu.Lock()
 	w.world = <-w.worldChan
 	w.turn++
-
 	w.worldMu.Unlock()
+	w.worldBuilt <- true
 
 	//Send receive neighbours halo/send world to calculate
 	err = progressHelper(w)
@@ -115,10 +119,15 @@ func progressHelper(w *Worker) (err error) {
 // Halo : Called by below neighbour Worker to exchange halo regions.
 // each worker should call this on their neighbour above and have it called on them by there neighbour below
 func (w *Worker) Halo(req stubs.WorkerHaloReqRes, res *stubs.WorkerHaloReqRes) (err error) {
+	<-w.worldBuilt
 	//Receive top from Worker below
 	w.botHalo <- req.Halo
 	//Send bottom of this worker to Worker below
-	res.Halo = w.world[w.height-1]
+	w.worldMu.Lock()
+	res.Halo = make([]byte, w.width)
+	copy(res.Halo, w.world[w.height-1])
+	w.worldMu.Unlock()
+	fmt.Println(res.Halo)
 	return
 }
 

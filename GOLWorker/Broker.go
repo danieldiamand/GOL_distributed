@@ -170,9 +170,6 @@ func (b *Broker) ProgressAll(req stubs.WorldRes, res *stubs.None) (err error) {
 		b.progressMu.Lock()
 		b.currentTurn = workerTurnRes[0].Turn
 		b.progressMu.Unlock()
-		if b.printProgress {
-			println("On Turn", b.currentTurn)
-		}
 	}
 
 	println("Broker finished calculating world at turn", b.currentTurn, "out of", b.finalTurn)
@@ -199,7 +196,6 @@ func (b *Broker) Count(req stubs.None, res *stubs.CountCellRes) (err error) {
 		}
 		<-workerDones[i].Done
 		count += workerCountRes[i].Count
-		println("worker", i, "on turn", workerCountRes[i].Turn)
 	}
 
 	res.Count = count
