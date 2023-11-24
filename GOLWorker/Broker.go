@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	pAddr := flag.String("address", "localhost:8032", "Address to listen on")
+	pAddr := flag.String("address", "localhost:8033", "Address to listen on")
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
 	err := rpc.Register(&Broker{})
@@ -46,6 +46,7 @@ type Broker struct {
 	height      int
 
 	printProgress bool
+	distributor   *rpc.Client
 
 	workers        []*rpc.Client
 	workersAdr     []string
@@ -82,6 +83,10 @@ func (b *Broker) Init(req stubs.BrokerInitReq, res *stubs.None) (err error) {
 }
 
 func (b *Broker) Start(req stubs.BrokerStartReq, res *stubs.None) (err error) {
+
+	//rpc Dial distributor
+	b.distributor, err = rpc.Dial("tcp", "localhost:8030")
+
 	//rpc Dial each worker
 	b.workers = make([]*rpc.Client, 0)
 	b.workersAdr = make([]string, 0)
@@ -132,6 +137,7 @@ func (b *Broker) Start(req stubs.BrokerStartReq, res *stubs.None) (err error) {
 	}
 
 	//Call Start on each worker
+
 	workerStartReq := stubs.WorkerStartReq{AboveAdr: b.workersAdr[b.workerCount-1]} //the top worker connects to the bottom
 	workerDones[0] = b.workers[0].Go(stubs.WorkerStart, workerStartReq, &stubs.None{}, nil)
 	for i := 1; i < b.workerCount; i++ {
@@ -139,12 +145,14 @@ func (b *Broker) Start(req stubs.BrokerStartReq, res *stubs.None) (err error) {
 		workerDones[i] = b.workers[i].Go(stubs.WorkerStart, workerStartReq, &stubs.None{}, nil)
 	}
 	//ensure each Start has completed
+
 	for i := 0; i < b.workerCount; i++ {
 		if workerDones[i].Error != nil {
 			println("Worker start err", workerDones[i].Error.Error())
 			return errors.New(fmt.Sprint("Error in Broker calling Start on Worker: ", workerDones[i].Error.Error()))
 		}
 		<-workerDones[i].Done
+
 	}
 
 	return //Return no error
@@ -153,7 +161,7 @@ func (b *Broker) Start(req stubs.BrokerStartReq, res *stubs.None) (err error) {
 func (b *Broker) ProgressAll(req stubs.WorldRes, res *stubs.None) (err error) {
 
 	//MAIN LOOP:
-	workerTurnRes := make([]stubs.Turn, b.workerCount)
+	workerTurnRes := make([]stubs.WorldRes, b.workerCount)
 	workerDones := make([]*rpc.Call, b.workerCount)
 	for b.currentTurn < b.finalTurn && !b.isQuit {
 		//Call progressHelper on each worker
@@ -161,15 +169,18 @@ func (b *Broker) ProgressAll(req stubs.WorldRes, res *stubs.None) (err error) {
 			workerDones[i] = b.workers[i].Go(stubs.WorkerProgress, stubs.None{}, &workerTurnRes[i], nil)
 		}
 		//ensure each start has completed
+		var tempWorld [][]byte
 		for i := 0; i < b.workerCount; i++ {
 			if workerDones[i].Error != nil {
 				return errors.New(fmt.Sprint("Error in Broker calling Progress on Worker: ", workerDones[i].Error.Error()))
 			}
 			<-workerDones[i].Done
+			tempWorld = append(tempWorld, workerTurnRes[i].World...)
 		}
 		b.progressMu.Lock()
 		b.currentTurn = workerTurnRes[0].Turn
 		b.progressMu.Unlock()
+		b.distributor.Call(stubs.DistReceive, stubs.WorldRes{World: tempWorld, Turn: b.currentTurn}, &stubs.None{})
 	}
 
 	println("Broker finished calculating world at turn", b.currentTurn, "out of", b.finalTurn)

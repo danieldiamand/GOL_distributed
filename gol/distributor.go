@@ -2,6 +2,7 @@ package gol
 
 import (
 	"fmt"
+	"net"
 	"net/rpc"
 	"strings"
 	"time"
@@ -34,8 +35,52 @@ type turnCount struct {
 	Count int
 }
 
+var prevWorld [][]byte
+var gloWorld chan [][]byte
+var gloTurn chan int
+
+type Distributor struct{}
+
+func (d *Distributor) Receive(req stubs.WorldRes, res *stubs.None) (err error) {
+	gloWorld <- req.World
+	gloTurn <- req.Turn
+	return
+}
+
+func constantlyDisplay(p Params, c distributorChannels) {
+	for {
+		world := <-gloWorld
+		turn := <-gloTurn
+		for y := 0; y < p.ImageHeight; y++ {
+			for x := 0; x < p.ImageWidth; x++ {
+				if world[y][x] != prevWorld[y][x] {
+					c.events <- CellFlipped{turn, util.Cell{x, y}}
+				}
+			}
+		}
+		c.events <- TurnComplete{turn}
+		prevWorld = world
+	}
+}
+
+func initMe() {
+	err := rpc.Register(&Distributor{})
+	if err != nil {
+		println("Error registering worker:", err.Error())
+		return
+	}
+	listener, err := net.Listen("tcp", "localhost:8030")
+	if err != nil {
+		println("Error listening on network:", err.Error())
+		return
+	}
+	defer listener.Close()
+	rpc.Accept(listener)
+}
+
 // distributor divides the work between workers and interacts with other goroutines.
 func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
+
 	//Activate IO to output world:
 	c.ioCommand <- ioInput
 	c.ioFilename <- fmt.Sprintf("%dx%d", p.ImageHeight, p.ImageWidth)
@@ -52,6 +97,11 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 			world[y][x] = cell
 		}
 	}
+	c.events <- TurnComplete{0}
+
+	prevWorld = world
+	go initMe()
+	go constantlyDisplay(p, c)
 
 	//Connect to broker
 	broker, err := rpc.Dial("tcp", p.BrokerAddress)

@@ -39,11 +39,11 @@ func main() {
 
 	brokerAddress := flag.String(
 		"brokerAddress",
-		"localhost:8032",
+		"localhost:8033",
 		"The address of Broker. Defaults to localhost:8032")
 	workerAddresses := flag.String(
 		"workerAddresses",
-		"localhost:8030,localhost:8031",
+		"localhost:8031,localhost:8032",
 		"The addresses of Workers seperated by a comma, will throw if less than threads. Defaults to localhost:8030")
 
 	noVis := flag.Bool(

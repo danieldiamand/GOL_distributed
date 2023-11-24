@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	pAddr := flag.String("address", "localhost:8031", "Address to listen on")
+	pAddr := flag.String("address", "localhost:8032", "Address to listen on")
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
 	err := rpc.Register(&Worker{})
@@ -80,7 +80,7 @@ func (w *Worker) Start(req stubs.WorkerStartReq, res *stubs.None) (err error) {
 }
 
 // Progress : Called by Broker to progressHelper the worker one turn
-func (w *Worker) Progress(req stubs.None, res *stubs.Turn) (err error) {
+func (w *Worker) Progress(req stubs.None, res *stubs.WorldRes) (err error) {
 	//Get world when done calculating
 	w.worldMu.Lock()
 	w.world = <-w.worldChan
@@ -94,6 +94,7 @@ func (w *Worker) Progress(req stubs.None, res *stubs.Turn) (err error) {
 		return err
 	}
 	res.Turn = w.turn
+	res.World = w.world
 	return
 }
 

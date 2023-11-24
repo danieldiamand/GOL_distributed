@@ -18,6 +18,8 @@ var BrokerFetch = "Broker.Fetch"
 var BrokerQuit = "Broker.Quit"
 var BrokerKill = "Broker.Kill"
 
+var DistReceive = "Distributor.Receive"
+
 type None struct {
 	//Empty
 }
