@@ -67,66 +67,34 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 		}
 	}(broker)
 
-	//Query State
-	state := stubs.BrokerStateRes{}
-	err = broker.Call(stubs.BrokerQueryState, stubs.None{}, &state)
+	//Init broker
+	err = broker.Call(stubs.BrokerInit, stubs.BrokerInitReq{
+		World:         world,
+		Width:         p.ImageWidth,
+		Height:        p.ImageHeight,
+		Turns:         p.Turns,
+		PrintProgress: p.PrintProgress,
+	},
+		&stubs.None{},
+	)
 	if err != nil {
-		println("Error in distributor calling QueryState on Broker:", err.Error())
+		println("Error in distributor calling Init on Broker:", err.Error())
 		close(c.events)
 		return
 	}
-	reconnect := false
-	if state.StillCalculating {
-		println("The Broker is still calculating another world:", state.Details)
-		println("Would you like to reconnect to this session [Y] or start with new world [N]")
-		var input string
-		_, err := fmt.Scan(&input)
-		if err != nil {
-			fmt.Println("Error reading input:", err)
-			return
-		}
-		switch input {
-		case "Y":
-			reconnect = true
-		case "N":
-			reconnect = false
-		default:
-			println("Invalid input.")
-			close(c.events)
-			return
-		}
-	}
 
-	if reconnect == false {
-		//Init broker
-		err = broker.Call(stubs.BrokerInit, stubs.BrokerInitReq{
-			World:         world,
-			Width:         p.ImageWidth,
-			Height:        p.ImageHeight,
-			Turns:         p.Turns,
-			PrintProgress: p.PrintProgress,
-		},
-			&stubs.None{},
-		)
-		if err != nil {
-			println("Error in distributor calling Init on Broker:", err.Error())
-			close(c.events)
-			return
-		}
+	//Start broker (communicate with workers)
+	workerAddresses := strings.Split(p.WorkerAddresses, ",")
+	err = broker.Call(stubs.BrokerStart, stubs.BrokerStartReq{
+		WorkerCount:     p.Threads,
+		WorkerAddresses: workerAddresses,
+	}, &stubs.None{},
+	)
 
-		//Start broker (communicate with workers)
-		workerAddresses := strings.Split(p.WorkerAddresses, ",")
-		err = broker.Call(stubs.BrokerStart, stubs.BrokerStartReq{
-			WorkerCount:     p.Threads,
-			WorkerAddresses: workerAddresses,
-		}, &stubs.None{},
-		)
-
-		if err != nil {
-			println("Error in distributor calling Start on Broker:", err.Error())
-			close(c.events)
-			return
-		}
+	if err != nil {
+		println("Error in distributor calling Start on Broker:", err.Error())
+		close(c.events)
+		return
 	}
 
 	//Progress broker

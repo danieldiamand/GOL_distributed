@@ -57,12 +57,6 @@ type Broker struct {
 	progressMu sync.Mutex
 }
 
-func (b *Broker) QueryState(req stubs.None, res *stubs.BrokerStateRes) (err error) {
-	res.StillCalculating = b.currentTurn != b.finalTurn
-	res.Details = fmt.Sprintf("%dx%d on turn: %d of %d", b.width, b.height, b.currentTurn, b.finalTurn)
-	return
-}
-
 func (b *Broker) Init(req stubs.BrokerInitReq, res *stubs.None) (err error) {
 
 	b.world = req.World
