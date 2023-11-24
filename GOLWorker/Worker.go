@@ -127,7 +127,6 @@ func (w *Worker) Halo(req stubs.WorkerHaloReqRes, res *stubs.WorkerHaloReqRes) (
 	res.Halo = make([]byte, w.width)
 	copy(res.Halo, w.world[w.height-1])
 	w.worldMu.Unlock()
-	fmt.Println(res.Halo)
 	return
 }
 
