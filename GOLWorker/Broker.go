@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	pAddr := flag.String("address", "localhost:8032", "Address to listen on")
+	pAddr := flag.String("address", "localhost:8033", "Address to listen on")
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
 	err := rpc.Register(&Broker{})
@@ -27,6 +27,7 @@ func main() {
 type Broker struct {
 	world          [][]byte
 	workers        []*rpc.Client
+	distributor    *rpc.Client
 	workerSections []int
 	turn           int
 	width          int
@@ -37,6 +38,11 @@ type Broker struct {
 }
 
 func (b *Broker) ProgressWorld(progressReq stubs.BrokerProgressWorldReq, progressRes *stubs.WorldRes) (err error) {
+	b.distributor, err = rpc.Dial("tcp", "localhost:8030")
+	if err != nil {
+		println("error connecting to dist", err.Error())
+	}
+
 	//Try and connect to all workers
 	for _, workerAdr := range progressReq.WorkersAdr {
 		worker, err := rpc.Dial("tcp", workerAdr)
@@ -136,7 +142,9 @@ func (b *Broker) ProgressWorld(progressReq stubs.BrokerProgressWorldReq, progres
 		b.worldMu.Lock()
 		b.world = newWorld
 		b.turn++
+		b.distributor.Go(stubs.DistRecieve, stubs.WorldRes{World: b.world, Turn: b.turn}, &stubs.Empty{}, nil)
 		b.worldMu.Unlock()
+
 	}
 
 	progressRes.World = b.world

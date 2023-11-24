@@ -14,6 +14,8 @@ var BrokerFetchWorld = "Broker.FetchWorld"
 var BrokerQuit = "Broker.Quit"
 var BrokerKill = "Broker.Kill"
 
+var DistRecieve = "Distributor.Receive"
+
 type Empty struct {
 }
 
