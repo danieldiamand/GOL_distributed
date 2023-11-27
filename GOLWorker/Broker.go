@@ -64,6 +64,8 @@ func (b *Broker) Init(req stubs.BrokerInitReq, res *stubs.None) (err error) {
 	b.finalTurn = req.Turns
 	b.width = req.Width
 	b.height = req.Height
+	b.isQuit = false
+	b.isPaused = false
 	b.printProgress = req.PrintProgress
 
 	println("Broker created, on world", b.width, "x", b.height, ".")
