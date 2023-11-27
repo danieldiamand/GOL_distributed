@@ -38,7 +38,7 @@ func main() {
 		"Specify the number of turns to process. Defaults to 10000000000.")
 
 	brokerAddress := flag.String(
-		"brokerAdr",
+		"brokerAddress",
 		"184.73.149.30:8030",
 		"The address of Broker. Defaults to localhost:8032")
 	workerAddresses := flag.String(
