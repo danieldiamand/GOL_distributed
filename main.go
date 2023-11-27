@@ -39,11 +39,11 @@ func main() {
 
 	brokerAddress := flag.String(
 		"brokerAdr",
-		"localhost:8032",
+		"184.73.149.30:8030",
 		"The address of Broker. Defaults to localhost:8032")
 	workerAddresses := flag.String(
-		"workerAdrs",
-		"localhost:8031",
+		"workerAddresses",
+		"18.207.208.4:8030,18.233.169.12:8030,3.83.228.73:8030,34.205.157.114:8030",
 		"The addresses of Workers seperated by a space. Defaults to localhost:8030")
 
 	noVis := flag.Bool(
