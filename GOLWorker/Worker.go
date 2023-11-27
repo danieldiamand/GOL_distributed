@@ -39,8 +39,7 @@ func (w *Worker) ProgressWorld(req stubs.WorkerProgressWorldReq, res *stubs.Worl
 	w.height = req.Height
 	w.startY = req.StartY
 	w.endY = req.EndY
-
-	println("Created worker at startY:", w.startY, "endY:", w.endY)
+	z
 
 	newWorld := calculateNextState(w.world, w.width, w.startY, w.endY, w.height)
 
