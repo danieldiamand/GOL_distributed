@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	pAddr := flag.String("address", "localhost:8033", "Address to listen on")
+	pAddr := flag.String("address", ":8030", "Address to listen on")
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
 	err := rpc.Register(&Broker{})
@@ -38,7 +38,7 @@ type Broker struct {
 }
 
 func (b *Broker) ProgressWorld(progressReq stubs.BrokerProgressWorldReq, progressRes *stubs.WorldRes) (err error) {
-	b.distributor, err = rpc.Dial("tcp", "localhost:8030")
+	b.distributor, err = rpc.Dial("tcp", "137.222.229.8:8030")
 	if err != nil {
 		println("error connecting to dist", err.Error())
 	}

@@ -51,10 +51,8 @@ var done chan bool
 
 func constantlyDisplay(p Params, c distributorChannels) {
 	for {
-		println("displaying")
 		world := <-gloWorld
 		turn := <-gloTurn
-		println("here2")
 		for y := 0; y < p.ImageHeight; y++ {
 			for x := 0; x < p.ImageWidth; x++ {
 				if world[y][x] != prevWorld[y][x] {
@@ -74,7 +72,7 @@ func initMe() {
 		println("Error registering worker:", err.Error())
 		return
 	}
-	listener, err := net.Listen("tcp", "localhost:8030")
+	listener, err := net.Listen("tcp", ":8030")
 	if err != nil {
 		println("Error listening on network:", err.Error())
 		return
