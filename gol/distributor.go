@@ -50,19 +50,7 @@ func (d *Distributor) Receive(req stubs.WorldRes, res *stubs.Empty) (err error) 
 var done chan bool
 
 func constantlyDisplay(p Params, c distributorChannels) {
-	for {
-		world := <-gloWorld
-		turn := <-gloTurn
-		for y := 0; y < p.ImageHeight; y++ {
-			for x := 0; x < p.ImageWidth; x++ {
-				if world[y][x] != prevWorld[y][x] {
-					c.events <- CellFlipped{turn, util.Cell{x, y}}
-				}
-			}
-		}
-		c.events <- TurnComplete{turn}
-		prevWorld = world
-	}
+	println("ahhh")
 }
 
 func initMe() {

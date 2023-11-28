@@ -38,10 +38,6 @@ type Broker struct {
 }
 
 func (b *Broker) ProgressWorld(progressReq stubs.BrokerProgressWorldReq, progressRes *stubs.WorldRes) (err error) {
-	b.distributor, err = rpc.Dial("tcp", "137.222.229.8:8030")
-	if err != nil {
-		println("error connecting to dist", err.Error())
-	}
 
 	//Try and connect to all workers
 	for _, workerAdr := range progressReq.WorkersAdr {
@@ -142,7 +138,6 @@ func (b *Broker) ProgressWorld(progressReq stubs.BrokerProgressWorldReq, progres
 		b.worldMu.Lock()
 		b.world = newWorld
 		b.turn++
-		b.distributor.Go(stubs.DistRecieve, stubs.WorldRes{World: b.world, Turn: b.turn}, &stubs.Empty{}, nil)
 		b.worldMu.Unlock()
 
 	}
