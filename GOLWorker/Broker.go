@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	pAddr := flag.String("address", "localhost:8032", "Address to listen on")
+	pAddr := flag.String("address", ":8030", "Address to listen on")
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
 	err := rpc.Register(&Broker{})

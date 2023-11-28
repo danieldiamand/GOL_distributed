@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	pAddr := flag.String("address", "localhost:8031", "Address to listen on")
+	pAddr := flag.String("address", ":8030", "Address to listen on")
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
 	err := rpc.Register(&Worker{})
@@ -37,8 +37,6 @@ func (w *Worker) ProgressWorld(req stubs.WorkerProgressWorldReq, res *stubs.Worl
 
 	w.width = req.Width
 	w.height = req.Height
-
-	println("Created worker starting work", len(w.world))
 
 	newWorld := calculateNextState(w.world, w.width, w.height)
 
