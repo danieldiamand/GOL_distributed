@@ -170,16 +170,17 @@ func (w *Worker) Kill(req stubs.None, res *stubs.None) (err error) {
 func calculateNextState(world [][]byte, topPad, botPad []byte, worldChan chan<- [][]byte, width, height, turn int, printProgress bool) {
 	if printProgress {
 		println("On Turn", turn)
-		println("toppad:")
 		var padBox [][]byte
 		padBox = append(padBox, topPad)
-		println("top pad:")
-		util.VisualiseMatrix(padBox, width, 1)
-		util.VisualiseMatrix(world, width, height)
+		println("Top padding:")
+		util.PrintMatrix(padBox, width, 1)
+		println("Stored world:")
+		util.PrintMatrix(world, width, height)
 		var padBox2 [][]byte
 		padBox2 = append(padBox2, botPad)
-		println("botpad")
-		util.VisualiseMatrix(padBox2, width, 1)
+		println("Bottom Padding:")
+		util.PrintMatrix(padBox2, width, 1)
+
 	}
 
 	var oldWorld [][]byte
