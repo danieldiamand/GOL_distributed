@@ -179,15 +179,15 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 
 	world = worldResponse.World
 	finalTurn := worldResponse.Turn
+	util.VisualiseMatrix(world, p.ImageWidth, p.ImageHeight)
 
 	//Send final world to io
 	sendWorldToPGM(world, finalTurn, p, c)
-	c.events <- FinalTurnComplete{finalTurn, calculateAliveCells(world, p)}
 
 	// Make sure that the Io has finished any output before exiting.
 	c.ioCommand <- ioCheckIdle
 	<-c.ioIdle
-
+	c.events <- FinalTurnComplete{finalTurn, calculateAliveCells(world, p)}
 	c.events <- StateChange{finalTurn, Quitting}
 
 	// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.

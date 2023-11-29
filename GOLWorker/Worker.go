@@ -192,7 +192,7 @@ func calculateNextState(world [][]byte, topPad, botPad []byte, worldChan chan<- 
 		newWorld[y-1] = make([]byte, width)
 		for x := 0; x < width; x++ {
 			count := liveNeighbourCount(y, x, width, oldWorld)
-			if oldWorld[y][x] == 255 { //if cells alive:-
+			if oldWorld[y][x] == 255 { //if cells alive:
 				if count == 2 || count == 3 { //any live cell with two or three live neighbours is unaffected
 					newWorld[y-1][x] = 255
 				}
