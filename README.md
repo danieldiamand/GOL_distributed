@@ -40,11 +40,13 @@ Run the program with the following flags:
 - `-h <height>`: Set the height of the board.
 - `-t <threads>`: Specify the number of workers to use.
 - `-turns <turns>`: Specify the number of turns to process.
+- `-brokerAddress <address:port>`: Specify the address and port of the broker.
+- `-workerAddress <address1:port1,address2:port2,...>`: Specify the address and ports of each worker.
 - `-printProgress <terminal output of board progress>`: Outputs the board progress to terminal.
 <em>
-Note:
--The program requires a matching PGM image file in `./images` for the specified width and height. If no image is found, it will not start.
--The `-t` flag must match the number of worker addresses passed in
+Note: <br/>
+-The program requires a matching PGM image file in `./images` for the specified width and height. If no image is found, it will not start. <br/>
+-The `-t` flag must match the number of worker addresses passed in <br/>
 -The `-printProgress` flag only works well on small boards.
 </em>
 
